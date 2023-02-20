@@ -104,7 +104,7 @@
    ```
 
    ```
-   vi nginx。service
+   vi nginx.service
    ```
 
    ```
