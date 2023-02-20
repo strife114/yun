@@ -7,7 +7,7 @@ Wget http://mirrors.sohu.com/mysql/MySQL-5.6/mysql-5.6.35-linux-glibc2.5-x86_64.
 1. 下载rpm包
 
    ```
-   wget https://cdn.mysql.com//archives/mysql-8.0/mysql-8.0.13-linux-glibc2.12-x86_64.tar.xz
+   
    ```
 
 2. 解压
@@ -59,7 +59,7 @@ Wget http://mirrors.sohu.com/mysql/MySQL-5.6/mysql-5.6.35-linux-glibc2.5-x86_64.
 8. 在mysql下初始化
 
    ```
-   mysqld --initialize --user=mysql
+   mysqld --initialize --user=mysql --basedir=/usr/local/mysql --datadir=/usr/local/mysql/data
    
    #初始化后里面有数据库密码信息
    A temporary password is generated for root@localhost: ?ydDe--Nl1u8
@@ -71,7 +71,7 @@ Wget http://mirrors.sohu.com/mysql/MySQL-5.6/mysql-5.6.35-linux-glibc2.5-x86_64.
    cd /usr/local/mysql/support-files
    ./mysql.server start
    
-   再次之前需要查看/sur/local/mysql/support-files/mysql.server配置文件
+   在此之前需要查看/sur/local/mysql/support-files/mysql.server配置文件
    修改
    basedir=/usr/local/mysql
    datadir=/usr/local/mysql/data
