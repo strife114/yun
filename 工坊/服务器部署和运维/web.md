@@ -33,7 +33,7 @@ LAMP(Linux+Apache+Mysql+PHP)
    ```
    rpm -qa | grep mariadb
    #删除对应的数据库
-   rpm -e 包名
+   yum remove mariadb-libs
    ```
 
 5. 添加命令到系统变量
