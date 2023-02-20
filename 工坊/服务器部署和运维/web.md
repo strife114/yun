@@ -4,6 +4,8 @@ LAMP(Linux+Apache+Mysql+PHP)
 
 ## mysql(8.0)
 
+### 编译安装
+
 注意：此版本无配置文件（无法优化）
 
 1. 下载rpm包
@@ -182,7 +184,13 @@ LAMP(Linux+Apache+Mysql+PHP)
    
    ```
 
+   
+
+
+
 ##  Mysql(5.6.45)
+
+### 编译安装
 
 1. 下载解压
 
