@@ -68,8 +68,8 @@ Wget http://mirrors.sohu.com/mysql/MySQL-5.6/mysql-5.6.35-linux-glibc2.5-x86_64.
 9. 启动服务
 
    ```
-  cd /usr/local/mysql/bin/
-  ./mysqld start
+  cd /usr/local/mysql/support-files
+  ./mysql.server start
    
    再次之前需要查看/sur/local/mysql/support-files/mysql.server配置文件
    修改
