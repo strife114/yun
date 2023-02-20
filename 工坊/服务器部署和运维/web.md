@@ -69,16 +69,7 @@ Wget http://mirrors.sohu.com/mysql/MySQL-5.6/mysql-5.6.35-linux-glibc2.5-x86_64.
 9. 启动服务
 
    ```
-   cd /usr/local/mysql/support-files
-   ./mysql.server start
-   
-   在此之前需要查看/sur/local/mysql/support-files/mysql.server配置文件
-   修改
-   basedir=/usr/local/mysql
-   datadir=/usr/local/mysql/data
-   
-   
-   自启动方式：
+      自启动方式：
    #拷贝配置文件mysql.server
    [root@localhost mysql]# cp support-files/mysql.server  /etc/init.d/mysqld
    #修改mysqld的配置文件
@@ -87,6 +78,14 @@ Wget http://mirrors.sohu.com/mysql/MySQL-5.6/mysql-5.6.35-linux-glibc2.5-x86_64.
    #设置自启
    chkconfig --add mysqld
    chkconfig  mysqld on
+
+
+   cd /etc/init.d/
+   ./mysqld start
+   
+   
+   
+
    ```
 
 10. 登录
