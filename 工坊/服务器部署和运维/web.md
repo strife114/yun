@@ -1,7 +1,10 @@
 LAMP(Linux+Apache+Mysql+PHP)
 
+# 安装mysql
 
-# 安装mysql（编译）
+## mysql(8.0)
+
+注意：此版本无配置文件（无法优化）
 
 1. 下载rpm包
 
@@ -80,23 +83,18 @@ LAMP(Linux+Apache+Mysql+PHP)
    #设置自启
    chkconfig --add mysqld
    chkconfig  mysqld on
-
-
+   
    cd /etc/init.d/
    ./mysqld start
-   
-   
-   
-
-   ```
 
 10. 登录
 
-    ```
+    ````
     mysql -uroot -p
     
     输入先前提示密码
     ```
+    ````
 
 11. 修改密码
 
@@ -113,7 +111,68 @@ LAMP(Linux+Apache+Mysql+PHP)
     mysql> flush privileges; 保存然后退出 
     ```
 
-    
+##  Mysql(5.6.45)
+
+1. 下载解压
+
+   ```
+   cd /usr/local/src
+   wget -c -t 0 https://dev.mysql.com/get/Downloads/MySQL-5.6/mysql-5.6.45-linux-glibc2.12-x86_64.tar.gz 
+   
+   tar -zxvf mysql-5.6.45-linux-glibc2.12-x86_64.tar.gz
+   ```
+
+2. 建立用户并配置文件权限
+
+   ```
+   useradd -s /sbin/nologin mysql
+   mkdir -p /data/mysql
+   chown -R mysql.mysql /data/mysql
+   
+   # 检测是否有mysql目录，如果没有则不执行
+   [ -d /usr/local/mysql ] && mv /usr/local/mysql /usr/local/mysql_old
+   
+   mv mysql-5.6.45-linux-glibc2.12-x86_64 /usr/local/mysql
+   
+   ```
+
+3. 安装
+
+   ```
+   cd /usr/local/mysql
+   
+   # --user表示定义数据库的以哪个用户的身份运
+   # --datadir表示定义数据库的安装目录
+   ./scripts/mysql_install_db --user=mysql --datadir=/data/mysql
+   
+   cp support-files/my-default.cnf /etc/my.cnf
+   cp support-files/mysql.server /etc/init.d/mysql
+   
+   chmod 755 /etc/init.d/mysql
+   ```
+
+4. 修改配置文件
+
+   ```
+   vim /etc/init.d/mysql
+   
+   datadir=/data/mysql
+   ```
+
+5. 设置自启
+
+   ```
+   chkconfig mysql on
+   ```
+
+6. 验证
+
+   ```
+   cd /etc/init.d
+   ./mysql start
+   ```
+
+
 
 # 安装apache
 
