@@ -1,6 +1,5 @@
 LAMP(Linux+Apache+Mysql+PHP)
 
-Wget http://mirrors.sohu.com/mysql/MySQL-5.6/mysql-5.6.35-linux-glibc2.5-x86_64.tar.gz
 
 # 安装mysql（编译）
 
