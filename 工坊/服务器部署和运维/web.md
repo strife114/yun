@@ -54,6 +54,7 @@ Wget http://mirrors.sohu.com/mysql/MySQL-5.6/mysql-5.6.35-linux-glibc2.5-x86_64.
 
    ```
    chown -R mysql.mysql /usr/local/mysql
+   mkdir /usr/local/mysql/data
    ```
 
 8. 在mysql下初始化
