@@ -7,7 +7,10 @@ Wget http://mirrors.sohu.com/mysql/MySQL-5.6/mysql-5.6.35-linux-glibc2.5-x86_64.
 1. 下载rpm包
 
    ```
-   
+   wget https://cdn.mysql.com//archives/mysql-8.0/mysql-8.0.13-linux-glibc2.12-x86_64.tar.xz
+   百度网盘
+   链接：https://pan.baidu.com/s/1xgLCuXOpeI7qYBpM3OtOjQ 
+   提取码：yoep
    ```
 
 2. 解压
@@ -69,7 +72,7 @@ Wget http://mirrors.sohu.com/mysql/MySQL-5.6/mysql-5.6.35-linux-glibc2.5-x86_64.
 9. 启动服务
 
    ```
-      自启动方式：
+   自启动方式：
    #拷贝配置文件mysql.server
    [root@localhost mysql]# cp support-files/mysql.server  /etc/init.d/mysqld
    #修改mysqld的配置文件
