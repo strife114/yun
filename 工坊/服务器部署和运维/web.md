@@ -111,6 +111,77 @@ LAMP(Linux+Apache+Mysql+PHP)
     mysql> flush privileges; 保存然后退出 
     ```
 
+### yum安装
+
+1. 卸载
+
+   ```
+   rpm -qa|grep -i mysql
+   find / -name mysql
+   rm -rf /etc/my.cnf
+   rm -rf /root/.mysql_sercret
+   
+   rpm -qa|grep -i mysql
+   rpm -qa | grep mariadb
+   yum remove mariadb-libs.x86_64
+   
+   ```
+
+2. 安装
+
+   ```
+   # 安装源
+   rpm -Uvh https://dev.mysql.com/get/mysql80-community-release-el7-3.noarch.rpm
+   # 安装mysql 8.0
+   yum --enablerepo=mysql80-community install mysql-community-server
+   
+   # 解决密钥问题
+   gpg --export -a 3a79bd29 > 3a79bd29.asc
+    
+   rpm --import 3a79bd29.asc
+    
+   rpm --import https://repo.mysql.com/RPM-GPG-KEY-mysql-2022
+   ```
+
+3. 设置密码
+
+   ```
+   vim /etc/my.cnf
+   
+   skip-grant-tables
+   ```
+
+4. 重启
+
+5. 修改密码
+
+   ```
+   mysql -uroot -p
+   
+   # 更新权限
+   flush privileges;
+   
+   # 设置密码
+   alter user 'root'@'localhost' identified by '123456';
+   
+   注意：此处密码为一级密码，为validate_password密码校验插件的规则所限制
+   # 查看当前密码策略
+   SHOW VARIABLES LIKE 'validate_password%';
+   解决方案：
+   1.输入符合规则的密码
+   2.修改策略
+     修改全局变量（重启后失效）
+     set global validate_password_policy=2;
+     systemctl restart mysqld
+     添加参数（my.cnf）
+     validate_password_policy=2
+   3.修改配置文件（my.cnf）
+     validate-password=OFF
+   4.卸载插件
+     uninstall plugin validate_password;
+   
+   ```
+
 ##  Mysql(5.6.45)
 
 1. 下载解压
