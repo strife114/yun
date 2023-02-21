@@ -6,8 +6,6 @@ LAMP(Linux+Apache+Mysql+PHP)
 
 ### 编译安装
 
-注意：此版本无配置文件（无法优化）
-
 1. 下载rpm包
 
    ```
@@ -70,7 +68,8 @@ LAMP(Linux+Apache+Mysql+PHP)
    mysqld --initialize --user=mysql --basedir=/usr/local/mysql --datadir=/usr/local/mysql/data
    
    #初始化后里面有数据库密码信息
-   A temporary password is generated for root@localhost: ?ydDe--Nl1u8
+   2023-02-21T00:41:15.602883Z 6 [Note] [MY-010454] [Server] A temporary password is generated for root@localhost: ssSLjp.Kp1It
+   
    ```
 
 9. 启动服务
@@ -112,6 +111,28 @@ LAMP(Linux+Apache+Mysql+PHP)
     mysql> grant all privileges on *.* to 'root'@'%' identified by '1qaz!QAZ' with grant option;   开放远程登录
     mysql> flush privileges; 保存然后退出 
     ```
+
+13. 调优
+
+    ```
+    # 因为此安装包没有默认带配置文件，需自创
+    cd /usr/local/support-files
+    touch my-default.cnf
+    chmod 777 my-default.cnf
+    cp ./my-default.cnf /etc/my.cnf
+    
+    
+    # 调优参数在配置文件中
+    vim /etc/init.d
+    [mysqld]
+    port=3306
+    basedir=/usr/local/mysql
+    datadir=/usr/local/mysql/data
+    ```
+
+    
+
+
 
 ### yum安装
 
