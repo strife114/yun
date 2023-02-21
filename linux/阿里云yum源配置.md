@@ -5,7 +5,7 @@
 2. 用wget下载repo文件
     
     ```
-    输入命令wget http://mirrors.aliyun.com/repo/Centos-7.repoto
+    输入命令wget http://mirrors.aliyun.com/repo/Centos-7.repo
     ```
     
     如果wget命令不生效，说明还没有安装wget工具，输入yum -y install wget 回车进行安装。
