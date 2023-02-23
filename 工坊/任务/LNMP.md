@@ -63,7 +63,35 @@
    ./mysql start
    ```
 
+7. 配置环境变量
 
+   ```
+   vim /etc/profile
+   # 执行文件在/usr/local/mysql/bin下
+   export PATH=/usr/local/mysql/bin:/usr/local/mysql/lib:$PATH
+   
+   # 生效
+   source /etc/profile
+   ```
+
+8. 设置密码
+
+   ```
+   vim /etc/my.cnf
+   
+   skip-grant-tables
+   
+   # 直接回车
+   mysql -uropt =p
+   
+   alter user 'root'@'localhost' identified by '123456';
+   或
+   set password for 'root'@'localhost'=password('1qaz!QAZ');   修改密码
+   
+   flush privileges;
+   ```
+   
+   
 
 
 
@@ -437,7 +465,7 @@
    }
    ```
 
-2. a安装httpd
+2. 安装httpd
 
    ```
    yum install -y httpd
@@ -605,7 +633,7 @@ server
 
    
 
-#### 附属
+#### 日志切割
 
 Nginx的日志很简单，不像httpd还带切割工具，在下面提供一个Nginx的日志切割脚本
 
@@ -689,6 +717,42 @@ done
 
 ### 防盗链
 
+1. 修改配置文件
+
+   ```
+   vi /usr/local/nginx/conf/vhost/test.com.conf
+   
+   
+   
+   # 服务器获取用户提交的网站地址，和真正的服务器地址比较，如果不是则视为盗链
+   server
+   {
+       listen 80;
+       server_name test.com test1.com test2.com;
+       index index.html index.htm index.php;
+       root /data/nginx/test.com;
+       if ($host != 'test.com' ) {
+          rewrite ^/(.*)$ http://test.com/$1 permanent;
+       }
+       location ~* ^.+\.(gif|jpg||png|swf|flv|rar|zip|doc|pdf|gz|bz2|jpeg|bmp|xls)$
+       {
+        valid_referers none blocked server_names *.test.com;
+        if ($invalid_referer) {
+            return 403;
+        }
+   } 
+   }
+   ```
+2. 重启并测试
+   
+   ```
+   /usr/local/nginx/sbin/nginx -t
+   /usr/local/nginx/sbin/nginx -s reload
+   ```
+   
+   
+   
+
 ### 访问控制
 
 1. 修改配置文件
@@ -696,15 +760,19 @@ done
    ```
    # vi /usr/local/nginx/conf/vhost/test.com.conf
    
+   
+   
+   # 设置/data/nginx/test.com下的admin目录
    server
    {
        listen 80;
        server_name test.com test1.com test2.com;
        index index.html index.htm index.php;
        root /data/nginx/test.com;
+       #使访问admin目录下只允许192.168.188.1和127.0.0.1访问
        location /admin/
       {
-         #使访问admin目录下只允许192.168.188.1和127.0.0.1访问
+         
            allow 192.168.188.1;
            allow 127.0.0.1;
            deny all;
@@ -731,6 +799,13 @@ done
 
 
 ### Nginx解析PHP
+
+#### 简介
+
+1. php-fpm的出现是为了**更好的管理php-fastcgi**而实现的一个程序
+2. php-fastcgi只是一个**cgi程序**，只会**解析php请求**，并且返回结果，**不会管理**（所有出现了php-fpm）
+3. 所以要php-fpm就是来**管理启动一个master进程和多个worker进程**的程序，php-fpm会创建一个主进程，用于控制何时以及如何将http请求转发给一个或多个子进程处理
+4. php-fpm主进程还控制着什么时候**创建**（处理web应用更多的流量）和**销毁**（子进程运行时间太久或不再需要）php子进程，php-fpm进程池中的每个进程存在的时间都比单个http请求长，可以处理10、50、100、500或更多的http请求
 
 1. 修改配置文件
 
@@ -767,6 +842,8 @@ done
    Nginx可以配置多个主机，php-fpm也可以配置多个pool
    首先对php-fpm.conf做一个修改
    
+    php-fpm的Pool池是支持定义多个pool的。每个pool可以监听不同的sock、tcp/ip。那nginx有好几个站点，每个站点可以使用一个pool。这样做的好处是当其中的一个php502（可能是php资源不够）了。如果所有的网站使用同一个池，那其中一个网站发生一些故障，比如程序员写的一些程序有问题，就会把php资源耗尽，这样的结果就是其他站点的php也会502。所以有必要把每一个站点隔离开，每个pool的名字要唯一。
+   
    vim /usr/local/php-fpm/etc/php-fpm.conf
    
    [global]
@@ -779,6 +856,8 @@ done
    # 创建配置文件目录和子配置文件
    # mkdir /usr/local/php-fpm/etc/php-fpm.d
    # cd /usr/local/php-fpm/etc/php-fpm.d
+   
+   
    # vim www.conf
    
    [www]
@@ -823,10 +902,11 @@ done
 
    ```
    # vim /usr/local/php-fpm/etc/php-fpm.d/www.conf
-   request_slowlog_timeout =1
-   #第一行定义超时时间，即超过一秒就会被记录日志
-   #第二行定义慢执行日志的路径和名字
    
+   
+   #第一行定义超时时间，即超过一秒就会被记录日志
+   request_slowlog_timeout =1
+   #第二行定义慢执行日志的路径和名字
    slowlog=/usr/local/php-fpm/var/log/www-slow.log
    
    ```
@@ -861,44 +941,264 @@ done
 
    
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # LNMP+WordPress部署
 
+## 简介
+
+1. WordPress是使用**PHP语言开发**的博客平台，用户可以在支**持PHP和MySQL数据库**的服务器上架设属于自己的网站。也可以把 WordPress当作一个内容管理系统（CMS）来使用。
+
+2. WordPress是一款**个人博客系统**，并逐步演化成一款**内容管理系统**软件，它是使用PHP语言和MySQL数据库开发的，用户可以在支持 PHP 和 MySQL数据库的服务器上使用自己的博客。
+
+3. WordPress有许多第三方开发的免费模板，安装方式简单易用。不过要做一个自己的模板，则需要你有一定的专业知识。比如你至少要懂的**标准通用标记语言**下的一个应用HTML代码、CSS、PHP等相关知识。
+
+4. WordPress官方支持中文版，同时有爱好者开发的第三方中文语言包，如wopus中文语言包。WordPress拥有成千上万个各式插件和不计其数的主题模板样式。 
+
+## 部署
+
+### 安装nginx
+
+1. 设置yum源
+
+   ```
+   vi /etc/yum.repos.d/nginx.repo
+   
+   [nginx]
+   name = nginx repo
+   baseurl = https://nginx.org/packages/mainline/centos/7/$basearch/
+   gpgcheck = 0
+   enabled = 1
+   
+   ```
+
+2. 安装
+
+   ```
+   yum install -y nginx
+   ```
+
+3. 修改default.conf文件
+
+   ```
+    vi /etc/nginx/conf.d/default.conf
+    
+    server {
+    listen 80;
+    root /usr/share/nginx/html;
+    server_name localhost;
+    #charset koi8-r;
+    #access_log /var/log/nginx/log/host.access.log main;
+    #
+    location / {
+    index index.php index.html index.htm;
+    }
+    #error_page 404 /404.html;
+    #redirect server error pages to the static page /50x.html
+    #
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+    root /usr/share/nginx/html;
+    }
+    #pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
+    #
+    location ~ .php$ {
+    fastcgi_pass 127.0.0.1:9000;
+    fastcgi_index index.php;
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    include fastcgi_params;
+    }
+   }
+   
+   ```
+
+4. 设置启动和自启
+
+   ```
+   systemctl start nginx
+   systemctl enable nginx
+   ```
+
+5. 浏览器访问虚拟机ip
 
 
-WordPress是使用[PHP](https://baike.baidu.com/item/PHP/9337?fromModule=lemma_inlink)语言开发的博客平台，用户可以在支持PHP和[MySQL](https://baike.baidu.com/item/MySQL/471251?fromModule=lemma_inlink)数据库的服务器上架设属于自己的网站。也可以把 WordPress当作一个[内容管理系统](https://baike.baidu.com/item/内容管理系统/2683135?fromModule=lemma_inlink)（CMS）来使用。
 
-WordPress是一款个人博客系统，并逐步演化成一款[内容管理系统](https://baike.baidu.com/item/内容管理系统/2683135?fromModule=lemma_inlink)软件，它是使用PHP语言和MySQL数据库开发的，用户可以在支持 PHP 和 MySQL数据库的服务器上使用自己的博客。
+### 安装Mariadb
 
-WordPress有许多第三方开发的免费模板，安装方式简单易用。不过要做一个自己的模板，则需要你有一定的专业知识。比如你至少要懂的[标准通用标记语言](https://baike.baidu.com/item/标准通用标记语言/6805073?fromModule=lemma_inlink)下的一个应用[HTML](https://baike.baidu.com/item/HTML?fromModule=lemma_inlink)代码、[CSS](https://baike.baidu.com/item/CSS/5457?fromModule=lemma_inlink)、PHP等相关知识。
+1. 查看是否安装
 
-WordPress官方支持中文版，同时有爱好者开发的第三方中文[语言包](https://baike.baidu.com/item/语言包/1985988?fromModule=lemma_inlink)，如wopus中文语言包。WordPress拥有成千上万个各式插件和不计其数的主题模板样式。 [1] 
+   ```
+   rpm -qa |grep -i mariadb
+   
+   
+   # 如果有就删除
+   yum remove -y mariadb-libs
+   ```
+
+2. 设置yum源
+
+   ```
+   vi /etc/yum.repos.d/MariaDB.repo
+   
+   [mariadb]
+   name = MariaDB
+   baseurl = https://mirrors.cloud.tencent.com/mariadb/yum/10.4/centos7-amd64
+   gpgkey=https://mirrors.cloud.tencent.com/mariadb/yum/RPM-GPG-KEY-MariaDB
+   gpgcheck=1
+   
+   ```
+
+3. 下载
+
+   ```
+   yum -y install  MariaDB-client MariaDB-server
+   ```
+
+4. 启动并自启
+
+   ```
+   systemctl start mariadb
+   systemctl enable mariadb
+   
+   ```
+
+5. 测试
+
+   ```
+   mysql
+   ```
+
+   
+
+
+
+### 安装PHP
+
+1. 更新yum中php软件源
+
+   ```
+   rpm -Uvh https://mirrors.cloud.tencent.com/epel/epel-release-latest-7.noarch.rpm
+   
+   rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm
+   
+   ```
+
+2. 下载
+
+   ```
+   yum -y install mod_php72w.x86_64 php72w-cli.x86_64 php72w-common.x86_64 php72w-mysqlnd php72w-fpm.x86_64
+   ```
+
+3. 启动并自启
+
+   ```
+   systemctl start php-fpm
+   systemctl enable php-fpm
+   ```
+
+4. 创建文件
+
+   ```
+   vim /usr/share/nginx/html/index.php
+   
+   <?php
+   phpinfo();
+   ?>
+   ```
+
+5. 重启
+
+   ```
+   systemctl restart nginx
+   ```
+
+6. 测试
+
+   ```
+   ip/index.php
+   ```
+
+
+
+
+
+### 搭建Wordpress
+
+1. 进入mysql服务器内创建一个名为wordpress的数据库并授权
+
+   ```
+   mysql -uroot -p000000
+   
+   # 创建数据库
+   create database wordpress;
+   # 赋权
+   grant all privileges on *.* to "wordpress"@"localhost" identified by '000000';
+   # 更新权限
+   flush privileges;
+   
+   # 重启
+   systemctl restart mariadb
+   ```
+
+2. 删除nginx的html下的所有文件
+
+   ```
+   rm -rf /usr/local/nginx/html/*
+   ```
+
+3. 上传解压wordpress安装包
+
+4. 复制系统文件到网页解析目录下
+
+   ```
+   # 强制复制wordpress下的所有东西到/usr/share/nginx/html/下
+   cp -rf wordpress/*   /usr/share/nginx/html/
+   
+   cd /usr/share/nginx/html/
+   ```
+   
+5. 部署wordpress
+
+   ```
+   # 备份
+   cp wp-config-sample.php wp-config.php
+   vim wp-config.php
+   
+   21 // ** MySQL
+    22 /** WordPress
+    23 define('DB_NAME', 'wordpress');
+    24
+    25 /** MySQL数据库⽤户名 */
+    26 define('DB_USER', 'wordpress');
+    27
+    28 /** MySQL数据库密码 */
+    29 define('DB_PASSWORD', '000000');
+    30
+    31 /** MySQL主机 */
+    32 define('DB_HOST', 'localhost');
+    33
+    34 /** 创建数据表时默认的⽂字编码 */
+    35 define('DB_CHARSET', 'utf8');
+    
+   ```
+
+6. 赋权
+
+   ```
+   chmod -R 777 /usr/share/nginx/html/
+   ```
+
+7. 查看端口
+
+   ```
+   netstat -ntlp 
+   ```
+
+8. 打开浏览器输入虚拟机ip
+
+
+
+   
+
+
+
+
+
