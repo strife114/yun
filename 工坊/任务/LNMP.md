@@ -28,36 +28,6 @@
    ```
 
 3. 安装
-# Mysql
-
-## Mysql(5.6.45)
-
-# 下载
-
-1. 下载解压
-
-   ```
-   cd /usr/local/src
-   wget -c -t 0 https://dev.mysql.com/get/Downloads/MySQL-5.6/mysql-5.6.45-linux-glibc2.12-x86_64.tar.gz 
-   
-   tar -zxvf mysql-5.6.45-linux-glibc2.12-x86_64.tar.gz
-   ```
-
-2. 建立用户并配置文件权限
-
-   ```
-   useradd -s /sbin/nologin mysql
-   mkdir -p /data/mysql
-   chown -R mysql.mysql /data/mysql
-   
-   # 检测是否有mysql目录，如果没有则不执行
-   [ -d /usr/local/mysql ] && mv /usr/local/mysql /usr/local/mysql_old
-   
-   mv mysql-5.6.45-linux-glibc2.12-x86_64 /usr/local/mysql
-   
-   ```
-
-3. 安装
 
    ```
    cd /usr/local/mysql
@@ -200,7 +170,7 @@
    tset is successful
    ```
 
-6. 设置配置文件
+6. 设置启动文件
 
    ```
    cp /usr/local/src/php-7.1.4/sapi/fpm/init.d.php-fpm /etc/init.d/php-fpm
