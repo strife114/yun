@@ -304,7 +304,7 @@ share 是用来设置匿名访问的，但现在的版本已经不支持 share �
 
 
 
-实验2（Linux和Linux共享文件夹）
+# 实验2（Linux和Linux共享文件夹）
 
 1. 安装
 
