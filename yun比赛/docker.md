@@ -339,7 +339,7 @@ RUN yum install -y nginx java-1.8.0-openjdk java-1.8.0-openjdk-devel \
  && sed -i '1a location /shopping { proxy_pass http://127.0.0.1:8081;}' /etc/nginx/conf.d/default.conf \
  && sed -i '2a location /usr { proxy_pass http://127.0.0.1:8082;}' /etc/nginx/conf.d/default.conf \
  && sed -i '3a location /cashier { proxy_pass http://127.0.0.1:8083;}' /etc/nginx/conf.d/default.conf \
- && chmod +x /root/setup/sh
+ && chmod +x /root/setup.sh \
  && rm -rf /usr/share/nginx/html/*
 EXPOSE 80 8081 8082 8083
 ADD dist/* /usr/share/nginx/html/
