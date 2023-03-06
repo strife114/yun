@@ -50,7 +50,7 @@ docker prune
 docker prune -a  移除所有没有被引用的镜像
 # 创建一个引用镜像标记目标镜像
 docker tag
-
+docker tag ubuntu:15.10 runoob/ubuntu:v3
 # 保存一个或多个镜像到一个tar归档文件
 docker save 镜像名 -o 归档包名
 
@@ -168,15 +168,17 @@ Dir         Dockerfile所在目录
 4. **CMD[“要运行的程序”，“参数1”，“参数2”]**	指令启动容器时要运行的命令或脚本，Dockerfile只能有一条CMD指令，如果要指定多条则只能最后一条执行
 5. **EXPOSE 端口号**	指定新镜像加载到Docker时要开启端口
 6. **ENV 环境变量 变量值**	设置一个环境变量的值，会被后面的RUN使用
-7. **ADD** 源文件/目录 目标文件/目录	功能和用法与COPY指令基本相同，不同在于使用ADD指令拷贝时，如果拷贝的是压缩文件，拷贝到容器中时会自动解压为目录
-   COPY 源文件/目录 目标文件/目录	用于拷贝宿主机的源目录/文件到容器内的某个目录。接受两个参数，源目录路径和容器内目录路径。
-8. **VOLUME[“目录”]**	在容器中创建一个挂载点，用于让你的容器访问宿主机上的目录。一般用来存放数据库和需要保持的数据等
-9. **USER 用户名/UID**	指定运行容器时的用户
-10. **WORKDIR 路径**	为后续的RUN、CMD、ENTRYPOINT指定工作目录
-11. ONBUILD命令	指定所生成的镜像作为一个基础镜像时所要运行的命令
-12. HEALTHCHECK	健康检查
+7. **ADD** 源文件/目录 目标文件/目录	功能和用法与COPY指令基本相同，不同在于使用ADD指令拷贝时，**如果拷贝的是压缩文件，拷贝到容器中时会自动解压为目录**
+8. COPY 源文件/目录 目标文件/目录	用于拷贝宿主机的源目录/文件到容器内的某个目录。接受两个参数，源目录路径和容器内目录路径。
+9. **VOLUME[“目录”]**	在容器中创建一个挂载点，用于让你的容器访问宿主机上的目录。一般用来存放数据库和需要保持的数据等
+10. **USER 用户名/UID**	指定运行容器时的用户
+11. **WORKDIR 路径**	为后续的RUN、CMD、ENTRYPOINT指定工作目录
+12. ONBUILD命令	指定所生成的镜像作为一个基础镜像时所要运行的命令
+13. HEALTHCHECK	健康检查
 
-13. USER   用于设置运行容器的UID
+14. USER   用于设置运行容器的UID
+
+15. ENTRYPOINT  指定这个容器启动的时候要运行的命令，可以追加命令
 
 ### 构建基础centos
 
@@ -199,11 +201,8 @@ CMD /bin/bash
 ```
 FROM centos:centos7.5.1804
 MAINTAINER Chinaskill
-RUN rm -rvf /etc/yum.repos.d/*
-ADD ABC /opt
-COPY local.repo /etc/yum.repos.d/
+ADD local.repo /etc/yum.repos.d/
 RUN yum clean all
-RUN yum list
 RUN yum -y install redis
 RUN sed -i -e 's@bind 127.0.0.1@bind 0.0.0.0@g' /etc/redis.conf
 RUN sed -i -e 's@protected-mode yes@protected-mode no@g' /etc/redis.conf
@@ -211,9 +210,12 @@ RUN sed -i -e 's@daemonize yes@daemonize no@g' /etc/redis.conf
 EXPOSE 6379
 ENTRYPOINT redis-server /etc/redis.conf
 CMD ["redis-server"]
+
 ```
 
 ## 构建mariadb
+
+### 1
 
 db_init.sh
 
@@ -224,6 +226,9 @@ sleep 3
 mysqld_safe &
 sleep 3
 mysql -e "grant all on *.* to root@'%' identified by '123456';"
+
+
+
 
 
 ```
@@ -246,52 +251,105 @@ CMD ["mysqld_safe"]
 
 
 
+### 2
+
+db_init.sh
+
+```
+#!/bin/bash
+mysql_install_db --user=mysql
+sleep 3
+mysqld_safe &
+sleep 3
+mysqladmin -u "$MARIADB_USER" password "$MARIADB_PASS"
+mysql -uroot -p123456 -e "use mysql; grant all privileges on *.* to '$MARIADB_USER'@'%' identified by '$MARIADB_PASS' with grant option;"
+mysql -uroot -p123456 -e "use mysql; source /root/mall.sql;"
+```
+
+Dockerfile-mariadb
+
+```
+FROM centos:centos7.5.1804
+MAINTAINER FDY
+ADD local.repo /etc/yum.repos.d/
+RUN yum clean all
+RUN yum install mariadb-server -y
+RUN echo "skip-grant-tables" >> /etc/my.cnf
+ENV MARIADB_USER root
+ENV MARIADB_PASS 123456
+
+ENV LC_ALL en_US.UTF8
+ADD gpmall.sql /root/
+ADD db_init.sh /root/
+ADD run.sh     /root/
+RUN chmod 755 /root/run.sh
+RUN chmod 755 /root/db_init.sh
+RUN  /root/db_init.sh
+EXPOSE 3306 
+ENTRYPOINT ["/root/run.sh"]
+RUN systemctl enable mariadb
+
+```
+
+run.sh
+
+```
+#!/bin/bash
+mysql_save
+```
+
+local.repo
+
+```
+[local]
+name=local
+baseurl=ftp://192.168.223.200/kubernetes-repo
+gpgcheck=0
+enabled=1
+```
+
+## 构建nacos镜像
+
+```
+FROM centos:cenots7.5.1804
+MAINTAINER chinaskill
+ADD local.repo /etc/yum.repos.d/
+ADD nacos-server-1.1.0.tar.gz /usr/local/
+ADD jdk-8u121-linux-x64.tar.gz /usr/local/
+ENV NACOS_HOME /usr/local/nacos
+ENV JAVA_HOME /usr/local/jdk1.8.0_121
+ENV PATH $PATH:$NACOS_HOME/bin:$JAVA_HOME/bin
+EXPOSE 8848
+CMD startup.sh -m standalone && tail -f $NACOS_HOME/logs/start.out
+```
+
+
+
 
 
 ## 构建nginx镜像
 
 ```
-1.新建一个nginx目录用于存放dockerfile及其所需文件
-mkdir nginx
-cd nginx/
-
-2.创建一个dockerfile文件
-vim Dockerfile
-
-写入如下dockerfile：
-
-FROM centos:7
-MAINTAINER Test nginx
-RUN yum -y update
-RUN yum -y install gcc gcc-c++ zlib-devel pcre-devel make
-RUN useradd -M -s /sbin/nologin nginx
-ADD nginx-1.12.0.tar.gz /usr/local/src
-WORKDIR /usr/local/src/nginx-1.12.0
-RUN ./configure \
---prefix=/usr/local/nginx \
---user=nginx \
---group=nginx \
---with-http_stub_status_module && make && make install
-ENV PATH /usr/local/nginx/sbin:$PATH
-EXPOSE 80
-EXPOSE 443
-RUN echo "daemon off;" >>/usr/local/nginx/conf/nginx.conf
-ADD run.sh /run.sh
-RUN chmod 755 /run.sh
-CMD ["/run.sh"]
-
-4.创建一个nginx启动脚本
-
-#!/bin/bash
-/usr/local/nginx/sbin/nginx
-
-//创建镜像
-docker build -t nginx:new .
-
-//运行容器
-docker run -d -P nginx:new   ## -P 随机映射端口
+FROM centos:centos7.5.1804
+MAINTAINER chinaskill
+ADD local.repo /etc/yum.repos.d/
+ADD *.jar /root/
+ADD setup.sh /root/
+RUN yum install -y nginx java-1.8.0-openjdk java-1.8.0-openjdk-devel \
+ && sed -i '1a location /shopping { proxy_pass http://127.0.0.1:8081;}' /etc/nginx/conf.d/default.conf \
+ && sed -i '2a location /usr { proxy_pass http://127.0.0.1:8082;}' /etc/nginx/conf.d/default.conf \
+ && sed -i '3a location /cashier { proxy_pass http://127.0.0.1:8083;}' /etc/nginx/conf.d/default.conf \
+ && chmod +x /root/setup/sh
+ && rm -rf /usr/share/nginx/html/*
+EXPOSE 80 8081 8082 8083
+ADD dist/* /usr/share/nginx/html/
+CMD ["nginx","-g","daemon off;"]
 
 ```
+
+
+
+
 
 ## 构建tomcat镜像
 
