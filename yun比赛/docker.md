@@ -180,7 +180,7 @@ Dir         Dockerfile所在目录
 
 15. ENTRYPOINT  指定这个容器启动的时候要运行的命令，可以追加命令
 
-### 构建基础centos
+## 构建基础centos
 
 ```
 FROM centos
@@ -196,6 +196,8 @@ CMD /bin/bash
 
 
 
+# 编排部署ChinaSkillsMall商城
+
 ## 构建redis
 
 ```
@@ -209,8 +211,20 @@ RUN sed -i -e 's@protected-mode yes@protected-mode no@g' /etc/redis.conf
 RUN sed -i -e 's@daemonize yes@daemonize no@g' /etc/redis.conf
 EXPOSE 6379
 ENTRYPOINT redis-server /etc/redis.conf
-CMD ["redis-server"]
 
+
+
+# 指定基于镜像和选定创建者
+# 配置yum源
+# 安装redis
+# 开放端口
+# 修改绑定ip地址
+RUN sed -i -e 's@bind 127.0.0.1@bind 0.0.0.0@g' /etc/redis.conf
+# 关闭保护模式
+RUN sed -i -e 's@protected-mode yes@protected-mode no@g' /etc/redis.conf
+# 启动
+ENTRYPOINT ["/usr/bin/redis-server","/etc/redis.conf"]
+entrypoint
 ```
 
 ## 构建mariadb
@@ -226,8 +240,6 @@ sleep 3
 mysqld_safe &
 sleep 3
 mysql -e "grant all on *.* to root@'%' identified by '123456';"
-
-
 
 
 
@@ -261,9 +273,23 @@ mysql_install_db --user=mysql
 sleep 3
 mysqld_safe &
 sleep 3
-mysqladmin -u "$MARIADB_USER" password "$MARIADB_PASS"
+mysqladmin -u "$MARvimIADB_USER" password "$MARIADB_PASS"
 mysql -uroot -p123456 -e "use mysql; grant all privileges on *.* to '$MARIADB_USER'@'%' identified by '$MARIADB_PASS' with grant option;"
 mysql -uroot -p123456 -e "use mysql; source /root/mall.sql;"
+
+# 编写初始化脚本
+# 指定数据库以哪个用户运行
+# 启动数据库
+# 设置用户和密码
+# 以命令交互式执行数据库命令
+  进入数据库，
+  修改密码
+  使用mall.sql恢复数据
+  
+  
+  
+
+
 ```
 
 Dockerfile-mariadb
@@ -271,42 +297,97 @@ Dockerfile-mariadb
 ```
 FROM centos:centos7.5.1804
 MAINTAINER FDY
+RUN rm -rf /etc/yum.repos.d/*
 ADD local.repo /etc/yum.repos.d/
-RUN yum clean all
-RUN yum install mariadb-server -y
-RUN echo "skip-grant-tables" >> /etc/my.cnf
+ADD mall-repo /opt/mall-repo
+ADD mall.sql  /root/
 ENV MARIADB_USER root
 ENV MARIADB_PASS 123456
 
 ENV LC_ALL en_US.UTF8
-ADD gpmall.sql /root/
+ADD mall.sql /root/
 ADD db_init.sh /root/
-ADD run.sh     /root/
-RUN chmod 755 /root/run.sh
 RUN chmod 755 /root/db_init.sh
-RUN  /root/db_init.sh
-EXPOSE 3306 
-ENTRYPOINT ["/root/run.sh"]
-RUN systemctl enable mariadb
+RUN yum install -y mariadb-server
+RUN sh -x /root/db_init.sh
+EXPOSE 3306
+CMD ["mysqld_safe"]               
 
-```
 
-run.sh
 
-```
-#!/bin/bash
-mysql_save
+
+# 几率报错，重新构建就行
+
+# 指定基本镜像源和创建者
+# 上传mall镜像源
+# 配置yum源
+# 安装mariadb
+# 上传db_init.sh
+# 赋权db_init.sh
+# 执行初始化脚本
+# 指定编码格式
+# 指定端口
+# 开启执行mysqld_safe
+# 设置自启
 ```
 
 local.repo
 
 ```
-[local]
-name=local
-baseurl=ftp://192.168.223.200/kubernetes-repo
+[mall]
+name=mall
+baseurl=file:///opt/mall-repo
 gpgcheck=0
 enabled=1
+
 ```
+
+### 3
+
+db_init.sh
+
+```
+  
+#!/bin/bash
+mysql_install_db --user=mysql
+sleep 3
+mysqld_safe &
+sleep 3
+mysqladmin -u "$MARIADB_USER" password "$MARIADB_PASS"
+mysql -uroot -p12345678 -e "use mysql; grant all privileges on *.* to '$MARIADB_USER'@'%' identified by '$MARIADB_PASS' with grant option;"
+mysql -uroot -p12345678 -e "use mysql; source /root/mall.sql;"
+```
+
+Dockerfile-mariadb
+
+```
+
+
+FROM centos:centos7.5.1804
+MAINTAINER fdy
+RUN rm -rf /etc/yum.repos.d/*
+ADD local.repo /etc/yum.repos.d/
+ADD db_init.sh /root/
+ADD mall-repo  /opt/mall-repo
+ADD mall.sql   /root/
+
+ENV LC_ALL en_US.UTF8
+ENV MARIADB_USER root
+ENV MARIADB_PASS 12345678
+RUN yum clean all
+RUN yum install -y mariadb-server
+RUN chmod 755 /root/db_init.sh
+RUN sh -x  /root/db_init.sh
+EXPOSE 3306
+CMD ["mysqld_safe"]
+
+```
+
+
+
+
+
+
 
 ## 构建nacos镜像
 
@@ -332,67 +413,45 @@ CMD startup.sh -m standalone && tail -f $NACOS_HOME/logs/start.out
 ```
 FROM centos:centos7.5.1804
 MAINTAINER chinaskill
+RUN rm -rf /etc/yum.repos.d/*
 ADD local.repo /etc/yum.repos.d/
+ADD mall-repo /opt/mall-repo
 ADD *.jar /root/
 ADD setup.sh /root/
 RUN yum install -y nginx java-1.8.0-openjdk java-1.8.0-openjdk-devel \
  && sed -i '1a location /shopping { proxy_pass http://127.0.0.1:8081;}' /etc/nginx/conf.d/default.conf \
  && sed -i '2a location /usr { proxy_pass http://127.0.0.1:8082;}' /etc/nginx/conf.d/default.conf \
  && sed -i '3a location /cashier { proxy_pass http://127.0.0.1:8083;}' /etc/nginx/conf.d/default.conf \
- && chmod +x /root/setup.sh \
+ && chmod +x /root/setup.sh
  && rm -rf /usr/share/nginx/html/*
 EXPOSE 80 8081 8082 8083
 ADD dist/* /usr/share/nginx/html/
 CMD ["nginx","-g","daemon off;"]
 
-```
-
-
-
-
-
-## 构建tomcat镜像
 
 ```
-1.新建一个nginx目录用于存放dockerfile及其所需文件
-mkdir nginx
-cd nginx/
 
-2.创建一个dockerfile文件
-vim Dockerfile
+set.up
 
-写入如下dockerfile：
-
-FROM centos:7
-MAINTAINER Test nginx
-RUN yum -y update
-RUN yum -y install gcc gcc-c++ zlib-devel pcre-devel make
-RUN useradd -M -s /sbin/nologin nginx
-ADD nginx-1.12.0.tar.gz /usr/local/src
-WORKDIR /usr/local/src/nginx-1.12.0
-RUN ./configure \
---prefix=/usr/local/nginx \
---user=nginx \
---group=nginx \
---with-http_stub_status_module && make && make install
-ENV PATH /usr/local/nginx/sbin:$PATH
-EXPOSE 80
-EXPOSE 443
-RUN echo "daemon off;" >>/usr/local/nginx/conf/nginx.conf
-ADD run.sh /run.sh
-RUN chmod 755 /run.sh
-CMD ["/run.sh"]
-
-4.创建一个nginx启动脚本
-
+```
 #!/bin/bash
-/usr/local/nginx/sbin/nginx
+nohup java -jar /root/shopping-provider-0.0.1-SNAPSHOT.jar &
+sleep 5
+nohup java -jar /root/user-provider-0.0.1-SNAPSHOT.jar &
+sleep 5
+nohup java -jar /root/gpmall-shopping-0.0.1-SNAPSHOT.jar &
+sleep 5
+nohup java -jar /root/gpmall-user-0.0.1-SNAPSHOT.jar &
+sleep 5
+```
 
-//创建镜像
-docker build -t nginx:new .
+local.repo
 
-//运行容器
-docker run -d -P nginx:new   ## -P 随机映射端口
-
+```
+[mall]
+name=mall
+baseurl=file:///opt/mall-repo
+gpgcheck=0
+enabled=1
 ```
 
