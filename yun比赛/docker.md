@@ -196,21 +196,24 @@ CMD /bin/bash
 
 
 
-# 编排部署ChinaSkillsMall商城
+
 
 ## 构建redis
 
 ```
 FROM centos:centos7.5.1804
 MAINTAINER Chinaskill
+RUN rm -rf /etc/yum.repos.d/*
+ADD mall-repo /opt/mall-repo
 ADD local.repo /etc/yum.repos.d/
 RUN yum clean all
 RUN yum -y install redis
 RUN sed -i -e 's@bind 127.0.0.1@bind 0.0.0.0@g' /etc/redis.conf
 RUN sed -i -e 's@protected-mode yes@protected-mode no@g' /etc/redis.conf
-RUN sed -i -e 's@daemonize yes@daemonize no@g' /etc/redis.conf
 EXPOSE 6379
-ENTRYPOINT redis-server /etc/redis.conf
+ENTRYPOINT ["redis-server","/etc/redis.conf"]
+~                                             
+
 
 
 
@@ -269,11 +272,11 @@ db_init.sh
 
 ```
 #!/bin/bash
-mysql_install_db --user=mysql
+mysql_install_db --user=root
 sleep 3
-mysqld_safe &
+mysqld_safe --user=root&
 sleep 3
-mysqladmin -u "$MARvimIADB_USER" password "$MARIADB_PASS"
+mysqladmin -u "$MARIADB_USER" password "$MARIADB_PASS"
 mysql -uroot -p123456 -e "use mysql; grant all privileges on *.* to '$MARIADB_USER'@'%' identified by '$MARIADB_PASS' with grant option;"
 mysql -uroot -p123456 -e "use mysql; source /root/mall.sql;"
 
@@ -311,7 +314,7 @@ RUN chmod 755 /root/db_init.sh
 RUN yum install -y mariadb-server
 RUN sh -x /root/db_init.sh
 EXPOSE 3306
-CMD ["mysqld_safe"]               
+CMD ["mysqld_safe","--user=root"]               
 
 
 
@@ -391,26 +394,127 @@ CMD ["mysqld_safe"]
 
 ## 构建nacos镜像
 
+### 简介
+
+1. Nacos 帮助您更敏捷和容易地构建、交付和管理微服务平台。 Nacos 是构建以“服务”为中心的现代应用架构 (例如微服务范式、云原生范式) 的服务基础设施。
+2. Nacos 提供对服务的实时的健康检查，阻止向不健康的主机或服务实例发送请求
+3. 动态配置服务可以让您以中心化、外部化和动态化的方式管理所有环境的应用配置和服务配置
+4. 动态 DNS 服务支持权重路由，让您更容易地实现中间层负载均衡、更灵活的路由策略、流量控制以及数据中心内网的简单DNS解析服务
+
+
+
+Dockerfile-nacos
+
 ```
-FROM centos:cenots7.5.1804
-MAINTAINER chinaskill
-ADD local.repo /etc/yum.repos.d/
-ADD nacos-server-1.1.0.tar.gz /usr/local/
-ADD jdk-8u121-linux-x64.tar.gz /usr/local/
-ENV NACOS_HOME /usr/local/nacos
-ENV JAVA_HOME /usr/local/jdk1.8.0_121
-ENV PATH $PATH:$NACOS_HOME/bin:$JAVA_HOME/bin
+FROM centos:centos7.5.1804
+MAINTAINER Guo
+
+COPY local.repo /etc/yum.repos.d/
+COPY mall-repo /opt/mall-repo
+COPY nacos-start.sh /opt
+
+ADD jdk-8u121-linux-x64.tar.gz /usr/local/bin
+ADD nacos-server-1.1.0.tar.gz /usr/local/bin
+ENV JAVA_HOME /usr/local/bin/jdk1.8.0_121
+
 EXPOSE 8848
-CMD startup.sh -m standalone && tail -f $NACOS_HOME/logs/start.out
+CMD ["/bin/bash","/opt/nacos-start.sh"]
+
+```
+
+nacos-start.sh
+
+```
+#!/bin/bash
+/usr/local/bin/nacos/bin/startup.sh -m standalone
+tail -f /usr/local/bin/nacos/logs/start.out
 ```
 
 
+
+## 构建rabbitmq镜像
+
+### 简介
+
+1. RabbitMQ是一个由[erlang](https://so.csdn.net/so/search?q=erlang&spm=1001.2101.3001.7020)开发的AMQP（Advanced Message Queue 高级消息队列协议 ）的开源实现，能够实现异步消息处理
+2. RabbitMQ是一个消息代理：它接受和转发消息
+
+Dockerfile-rabbitmq
+
+```
+FROM centos:centos7.5.1804
+MAINTAINER Guo
+
+RUN rm -rf /etc/yum.repos.d/*
+COPY local.repo /etc/yum.repos.d/
+COPY rabbitmq-user.sh /opt/rabbitmq-user.sh
+COPY mall-repo /opt/mall-repo
+
+RUN yum -y install rabbitmq-server
+
+EXPOSE 5672 15672
+CMD ["/bin/bash","/opt/rabbitmq-user.sh"]
+
+```
+
+rabbitmq-user.sh
+
+```
+#!/bin/bash
+/usr/lib/rabbitmq/bin/rabbitmq-server restart
+sleep 8
+/usr/lib/rabbitmq/bin/rabbitmqctl add_vhost mall
+/usr/lib/rabbitmq/bin/rabbitmqctl add_user mall mall
+/usr/lib/rabbitmq/bin/rabbitmqctl set_user_tags mall administrator
+/usr/lib/rabbitmq/bin/rabbitmqctl set_permissions -p mall mall '.*' '.*' '.*'
+/usr/lib/rabbitmq/bin/rabbitmq-plugins enable rabbitmq_management
+/usr/lib/rabbitmq/bin/rabbitmq-server restart
+```
 
 
 
 ## 构建nginx镜像
 
+### 生成前端文件
+
 ```
+[root@master mall-swarm]# tar -zxvf mall-admin-web.tar.gz
+[root@master mall-swarm]# cd mall-admin-web
+[root@master mall-admin-web]# vi config/prod.env.js
+'use strict'
+module.exports = {
+  NODE_ENV: '"production"',
+  BASE_API: '"http://10.24.2.156:8201/mall-admin"'  #修改为本机IP
+}
+
+
+```
+
+### 生成dist目录
+
+```
+[root@node mall-admin-web]# cd ../
+[root@node mall-swarm]# tar zxvf node-v6.17.1-linux-x64.tar.gz
+[root@node mall-swarm]# mv node-v6.17.1-linux-x64 /usr/local/node
+[root@node mall-swarm]# vi /etc/profile
+export NODE_HOME=/usr/local/node
+export PATH=$NODE_HOME/bin:$PATH
+[root@node mall-swarm]# source /etc/profile
+[root@node mall-swarm]# node -v
+v6.17.1
+[root@node mall-swarm]# npm -v
+3.10.10
+[root@node mall-swarm]# cd mall-admin-web
+[root@master mall-admin-web]# npm run build
+[root@master mall-admin-web]# mv dist/ ../
+[root@master mall-admin-web]# cd ../
+
+```
+
+### Dockerfile-nginx
+
+```
+# 负载均衡项目
 FROM centos:centos7.5.1804
 MAINTAINER chinaskill
 RUN rm -rf /etc/yum.repos.d/*
@@ -429,9 +533,21 @@ ADD dist/* /usr/share/nginx/html/
 CMD ["nginx","-g","daemon off;"]
 
 
+
+
+FROM centos:centos7.5.1804
+MAINTAINER nginxfdy
+RUN rm -rf /etc/yum.repos.d/*
+ADD local.repo /etc/yum.repos.d/
+ADD mall-repo /opt/mall-repo
+RUN yum clean all
+RUN yum install -y nginx
+ADD dist/ /usr/share/nginx/html/
+EXPOSE 80
+ CMD ["nginx","-g","daemon off;"]
 ```
 
-set.up
+### set.up
 
 ```
 #!/bin/bash
@@ -445,7 +561,7 @@ nohup java -jar /root/gpmall-user-0.0.1-SNAPSHOT.jar &
 sleep 5
 ```
 
-local.repo
+### local.repo
 
 ```
 [mall]
@@ -453,5 +569,37 @@ name=mall
 baseurl=file:///opt/mall-repo
 gpgcheck=0
 enabled=1
+```
+
+
+
+## 构建kafka镜像
+
+### 简介
+
+1. Kafka 是一种分布式的，基于发布 / 订阅的消息系统
+
+
+
+Dockerfile-kafaka
+
+```
+
+```
+
+
+
+## 构建zookeeper镜像
+
+### 简介
+
+1. ZooKeeper主要**服务于分布式系统**，可以用ZooKeeper来做：统一配置管理、统一命名服务、分布式锁、集群管理。
+
+
+
+Dockerfile-zookeeper
+
+```
+
 ```
 
