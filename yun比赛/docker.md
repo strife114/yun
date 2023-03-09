@@ -212,7 +212,7 @@ RUN sed -i -e 's@bind 127.0.0.1@bind 0.0.0.0@g' /etc/redis.conf
 RUN sed -i -e 's@protected-mode yes@protected-mode no@g' /etc/redis.conf
 EXPOSE 6379
 ENTRYPOINT ["redis-server","/etc/redis.conf"]
-~                                             
+~                                            
 
 
 
@@ -299,7 +299,7 @@ Dockerfile-mariadb
 
 ```
 FROM centos:centos7.5.1804
-MAINTAINER FDY
+MAINTAINER mall-mariadb
 RUN rm -rf /etc/yum.repos.d/*
 ADD local.repo /etc/yum.repos.d/
 ADD mall-repo /opt/mall-repo
@@ -388,7 +388,20 @@ CMD ["mysqld_safe"]
 
 
 
+## 构建mysql
 
+db_init.sh
+
+```
+#!/bin/bash
+sed -i '$a\skip-grant-tables' /etc/my.cnf
+systemctl restart  mysqld
+mysql -uroot -e "update mysql.user set authentication_string=password('3edc#EDC') where user='root' and Host = 'localhost';flush privileges;\q"
+sed -i '$d' /etc/my.cnf
+systemctl restart  mysqld
+mysqladmin -uroot -p'3edc#EDC' password '3edc#EDC'
+mysql -uroot -p'3edc#EDC' -e "grant all privileges on *.* to 'root'@'%' identified by '3edc#EDC' with grant option;flush privileges;\q"
+```
 
 
 
@@ -493,18 +506,18 @@ module.exports = {
 ### 生成dist目录
 
 ```
-[root@node mall-admin-web]# cd ../
-[root@node mall-swarm]# tar zxvf node-v6.17.1-linux-x64.tar.gz
-[root@node mall-swarm]# mv node-v6.17.1-linux-x64 /usr/local/node
-[root@node mall-swarm]# vi /etc/profile
+[root@masster mall-admin-web]# cd ../
+[root@ mall-swarm]# tar zxvf node-v6.17.1-linux-x64.tar.gz
+[root@ mall-swarm]# mv node-v6.17.1-linux-x64 /usr/local/node
+# vim /etc/profile
 export NODE_HOME=/usr/local/node
 export PATH=$NODE_HOME/bin:$PATH
-[root@node mall-swarm]# source /etc/profile
-[root@node mall-swarm]# node -v
+[root@ mall-swarm]# source /etc/profile
+[root@ mall-swarm]# node -v
 v6.17.1
-[root@node mall-swarm]# npm -v
+[root@ mall-swarm]# npm -v
 3.10.10
-[root@node mall-swarm]# cd mall-admin-web
+[root@ mall-swarm]# cd mall-admin-web
 [root@master mall-admin-web]# npm run build
 [root@master mall-admin-web]# mv dist/ ../
 [root@master mall-admin-web]# cd ../
@@ -573,20 +586,6 @@ enabled=1
 
 
 
-## 构建kafka镜像
-
-### 简介
-
-1. Kafka 是一种分布式的，基于发布 / 订阅的消息系统
-
-
-
-Dockerfile-kafaka
-
-```
-
-```
-
 
 
 ## 构建zookeeper镜像
@@ -600,6 +599,77 @@ Dockerfile-kafaka
 Dockerfile-zookeeper
 
 ```
+# vim Dockerfile-zookeeper
+FROM centos:centos7.5.1804
+MAINTAINER Chinaskill
+
+# 配置yum源
+ADD gpmall.tar /opt
+RUN rm -rfv /etc/yum.repos.d/*
+ADD local.repo /etc/yum.repos.d/
+
+# 安装JDK
+RUN yum install -y java-1.8.0-openjdk java-1.8.0-openjdk-devel
+
+ENV work_path /usr/local
+
+WORKDIR $work_path
+
+# 安装ZooKeeper
+ADD zookeeper-3.4.14.tar.gz /usr/local
+ENV ZOOKEEPER_HOME /usr/local/zookeeper-3.4.14
+
+# PATH
+ENV PATH $PATH:$JAVA_HOME/bin:$JRE_HOME/bin:$ZOOKEEPER_HOME/bin
+RUN cp $ZOOKEEPER_HOME/conf/zoo_sample.cfg $ZOOKEEPER_HOME/conf/zoo.cfg
+
+EXPOSE 2181
+
+# 设置开机自启
+CMD $ZOOKEEPER_HOME/bin/zkServer.sh start-foreground
 
 ```
 
+
+## 构建kafka镜像
+
+### 简介
+
+1. Kafka 是一种分布式的，基于发布 / 订阅的消息系统
+
+
+
+
+
+
+
+Dockerfile-kafaka
+
+```
+# vim Dockerfile-kafka 
+FROM centos:centos7.5.1804
+MAINTAINER Chinaskill
+
+# 配置yum源
+ADD gpmall.tar /opt
+RUN rm -rfv /etc/yum.repos.d/*
+ADD local.repo /etc/yum.repos.d/
+
+# 安装JDK
+RUN yum install -y java-1.8.0-openjdk java-1.8.0-openjdk-devel
+
+# 安装Kafka
+RUN mkdir /opt/kafka
+ADD kafka_2.11-1.1.1.tgz /opt/kafka
+RUN sed -i 's/num.partitions.*$/num.partitions=3/g' /opt/kafka/kafka_2.11-1.1.1/config/server.properties
+
+RUN echo "source /root/.bash_profile" > /opt/kafka/start.sh &&\
+    echo "cd /opt/kafka/kafka_2.11-1.1.1" >> /opt/kafka/start.sh &&\
+    echo "sed -i 's%zookeeper.connect=.*$%zookeeper.connect=zookeeper.mall:2181%g' /opt/kafka/kafka_2.11-1.1.1/config/server.properties" >> /opt/kafka/start.sh &&\
+    echo "bin/kafka-server-start.sh config/server.properties" >> /opt/kafka/start.sh &&\
+    chmod a+x /opt/kafka/start.sh
+
+EXPOSE 9092
+
+ENTRYPOINT ["sh", "/opt/kafka/start.sh"]vi
+```
