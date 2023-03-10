@@ -1,4 +1,4 @@
-# 配vim置镜像加速器
+# 配置镜像加速器
 
 ```
 # vim /etc/docker/daemon.json
