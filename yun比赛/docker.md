@@ -1,4 +1,4 @@
-# 配置镜像加速器
+# 配vim置镜像加速器
 
 ```
 # vim /etc/docker/daemon.json
@@ -178,7 +178,7 @@ Dir         Dockerfile所在目录
 
 14. USER   用于设置运行容器的UID
 
-15. ENTRYPOINT  指定这个容器启动的时候要运行的命令，可以追加命令
+15. ENTRYPOINT  指定这个容器启动的时候要运行的命令，可以追加命令，与cmd的区别就是创建容器的参数不能被指定
 
 ## 构建基础centos
 
@@ -202,7 +202,7 @@ CMD /bin/bash
 
 ```
 FROM centos:centos7.5.1804
-MAINTAINER Chinaskill
+MAINTAINER redis
 RUN rm -rf /etc/yum.repos.d/*
 ADD mall-repo /opt/mall-repo
 ADD local.repo /etc/yum.repos.d/
@@ -212,7 +212,7 @@ RUN sed -i -e 's@bind 127.0.0.1@bind 0.0.0.0@g' /etc/redis.conf
 RUN sed -i -e 's@protected-mode yes@protected-mode no@g' /etc/redis.conf
 EXPOSE 6379
 ENTRYPOINT ["redis-server","/etc/redis.conf"]
-~                                            
+                                      
 
 
 
@@ -266,7 +266,7 @@ CMD ["mysqld_safe"]
 
 
 
-### 2
+### chinaskillmall
 
 db_init.sh
 
@@ -299,7 +299,7 @@ Dockerfile-mariadb
 
 ```
 FROM centos:centos7.5.1804
-MAINTAINER mall-mariadb
+MAINTAINER mariadb
 RUN rm -rf /etc/yum.repos.d/*
 ADD local.repo /etc/yum.repos.d/
 ADD mall-repo /opt/mall-repo
@@ -318,8 +318,6 @@ CMD ["mysqld_safe","--user=root"]
 
 
 
-
-# 几率报错，重新构建就行
 
 # 指定基本镜像源和创建者
 # 上传mall镜像源
@@ -345,44 +343,34 @@ enabled=1
 
 ```
 
-### 3
+### mall-admin
 
 db_init.sh
 
 ```
-  
 #!/bin/bash
-mysql_install_db --user=mysql
-sleep 3
-mysqld_safe &
-sleep 3
-mysqladmin -u "$MARIADB_USER" password "$MARIADB_PASS"
-mysql -uroot -p12345678 -e "use mysql; grant all privileges on *.* to '$MARIADB_USER'@'%' identified by '$MARIADB_PASS' with grant option;"
-mysql -uroot -p12345678 -e "use mysql; source /root/mall.sql;"
+mysql_install_db --user=root
+mysqld_safe --user=root &
+sleep 8
+mysqladmin -u root password 'root'
+mysql -uroot -proot -e "grant all on *.* to 'reader'@'%' identified by '123456'; flush privileges;"
+mysql -uroot -proot -e "create database mall; use mall; source /opt/mall.sql;"
 ```
 
 Dockerfile-mariadb
 
 ```
-
-
 FROM centos:centos7.5.1804
-MAINTAINER fdy
+MAINTAINER mysql
 RUN rm -rf /etc/yum.repos.d/*
-ADD local.repo /etc/yum.repos.d/
-ADD db_init.sh /root/
-ADD mall-repo  /opt/mall-repo
-ADD mall.sql   /root/
-
-ENV LC_ALL en_US.UTF8
-ENV MARIADB_USER root
-ENV MARIADB_PASS 12345678
-RUN yum clean all
-RUN yum install -y mariadb-server
-RUN chmod 755 /root/db_init.sh
-RUN sh -x  /root/db_init.sh
+COPY local.repo /etc/yum.repos.d/
+COPY mall-repo /opt/mall-repo
+COPY mall.sql /opt/
+COPY db_init.sh /opt/
+ENV LC_ALL en_US.UTF-8
+RUN yum -y install mariadb-server && bash /opt/db_init.sh
 EXPOSE 3306
-CMD ["mysqld_safe"]
+CMD ["mysqld_safe","--user=root"]
 
 ```
 
@@ -420,7 +408,7 @@ Dockerfile-nacos
 
 ```
 FROM centos:centos7.5.1804
-MAINTAINER Guo
+MAINTAINER nacos
 
 COPY local.repo /etc/yum.repos.d/
 COPY mall-repo /opt/mall-repo
@@ -456,8 +444,7 @@ Dockerfile-rabbitmq
 
 ```
 FROM centos:centos7.5.1804
-MAINTAINER Guo
-
+MAINTAINER rabbitmq
 RUN rm -rf /etc/yum.repos.d/*
 COPY local.repo /etc/yum.repos.d/
 COPY rabbitmq-user.sh /opt/rabbitmq-user.sh
@@ -529,7 +516,7 @@ v6.17.1
 ```
 # 负载均衡项目
 FROM centos:centos7.5.1804
-MAINTAINER chinaskill
+MAINTAINER nginx
 RUN rm -rf /etc/yum.repos.d/*
 ADD local.repo /etc/yum.repos.d/
 ADD mall-repo /opt/mall-repo
@@ -547,7 +534,7 @@ CMD ["nginx","-g","daemon off;"]
 
 
 
-
+# mall-admin项目
 FROM centos:centos7.5.1804
 MAINTAINER nginxfdy
 RUN rm -rf /etc/yum.repos.d/*
@@ -596,6 +583,22 @@ enabled=1
 
 
 
+local1.repo
+
+```
+[mall]
+name=mall
+baseurl=file:///opt/gpmall
+gpgcheck=0
+enabled=1
+[local]
+name=local
+baseurl=file:///opt/mall-repo
+gpgcheck=0
+enabled=1
+       
+```
+
 Dockerfile-zookeeper
 
 ```
@@ -607,6 +610,7 @@ MAINTAINER Chinaskill
 ADD gpmall.tar /opt
 RUN rm -rfv /etc/yum.repos.d/*
 ADD local.repo /etc/yum.repos.d/
+ADD mall-repo /opt/mall-repo
 
 # 安装JDK
 RUN yum install -y java-1.8.0-openjdk java-1.8.0-openjdk-devel
@@ -639,37 +643,219 @@ CMD $ZOOKEEPER_HOME/bin/zkServer.sh start-foreground
 
 
 
-
-
-
-
 Dockerfile-kafaka
 
 ```
-# vim Dockerfile-kafka 
 FROM centos:centos7.5.1804
-MAINTAINER Chinaskill
+MAINTAINER mall-kafka
 
-# 配置yum源
-ADD gpmall.tar /opt
-RUN rm -rfv /etc/yum.repos.d/*
-ADD local.repo /etc/yum.repos.d/
+RUN rm -rf /etc/yum.repos.d/*
+ADD local1.repo /etc/yum.repos.d/
+ADD gpmall.tar /opt/
+ADD mall-repo /opt/mall-repo
 
-# 安装JDK
-RUN yum install -y java-1.8.0-openjdk java-1.8.0-openjdk-devel
-
-# 安装Kafka
-RUN mkdir /opt/kafka
-ADD kafka_2.11-1.1.1.tgz /opt/kafka
-RUN sed -i 's/num.partitions.*$/num.partitions=3/g' /opt/kafka/kafka_2.11-1.1.1/config/server.properties
-
-RUN echo "source /root/.bash_profile" > /opt/kafka/start.sh &&\
-    echo "cd /opt/kafka/kafka_2.11-1.1.1" >> /opt/kafka/start.sh &&\
-    echo "sed -i 's%zookeeper.connect=.*$%zookeeper.connect=zookeeper.mall:2181%g' /opt/kafka/kafka_2.11-1.1.1/config/server.properties" >> /opt/kafka/start.sh &&\
-    echo "bin/kafka-server-start.sh config/server.properties" >> /opt/kafka/start.sh &&\
-    chmod a+x /opt/kafka/start.sh
-
+ADD kafka_2.11-1.1.1.tgz /usr/local/
+ADD zookeeper-3.4.14.tar.gz /usr/local/
+RUN yum install -y java java-devel  java-1.8.0-openjdk  java-1.8.0-openjdk-devel
+RUN mv /usr/local/zookeeper-3.4.14/conf/zoo_sample.cfg /usr/local/zookeeper-3.4.14/conf/zoo.cfg
 EXPOSE 9092
 
-ENTRYPOINT ["sh", "/opt/kafka/start.sh"]vi
+CMD ["sh","-c","/usr/local/zookeeper-3.4.14/bin/zkServer.sh start && /usr/local/kafka_2.11-1.1.1/bin/kafka-server-start.sh /usr/local/kafka_2.11-1.1.1/config/server.properties" ]
+       
 ```
+
+
+
+
+
+
+
+# 编排部署
+
+## 导入镜像
+
+```
+[root@master mall-swarm]# docker load -i images/mall_mall-admin_1.0-SNAPSHOT.tar 
+[root@master mall-swarm]# docker load -i images/mall_mall-auth_1.0-SNAPSHOT.tar 
+[root@master mall-swarm]# docker load -i images/mall_mall-gateway_1.0-SNAPSHOT.tar
+```
+
+## docker-compose.yaml
+
+```yaml
+version: '3'
+services:
+  mysql.mall:
+    image: chinaskill-mariadb:v1.1
+    container_name: mall-mariadb
+    restart: always
+    ports:
+      - "3306:3306"
+  redis.mall:
+    image: chinaskill-redis:v1.1
+    container_name: mall-redis
+    restart: always
+    ports:
+      - "6379:6379"
+  zookeeper.mall:
+    image: chinaskill-zookeeper:v1.1
+    container_name: mall-zookeeper
+    restart: always
+    ports:
+      - "2128:2128"
+  kafka.mall:
+    image: chinaskill-kafka:v1.1
+    container_name: mall-kafka
+    restart: always
+    ports:
+      - "9092:9092"
+  mall:
+    image: chinaskill-nginx:v1.1
+    container_name: mall-nginx
+    restart: always
+    ports:
+      - "81:80"
+      - "1443:443"
+    depends_on:
+      - mysql.mall
+      - redis.mall
+      - zookeeper.mall
+      - kafka.mall
+
+
+```
+
+
+
+
+
+## 补充
+
+```yaml
+version: '3'
+services:
+  mysql.mall:
+    image: chinaskill-mariadb:v1.1
+    container_name: mall-mariadb
+    restart: always
+    ports:
+      - "3306:3306"
+  redis.mall:
+    image: chinaskill-redis:v1.1
+    container_name: mall-redis
+    restart: always
+    ports:
+      - "6379:6379"
+  zookeeper.mall:
+    image: chinaskill-zookeeper:v1.1
+    container_name: mall-zookeeper
+    restart: always
+    ports:
+      - "2128:2128"
+  nacos.mall:
+    image: chinaskill-nacos:v1.1
+    container_name: mall-nacos
+    restart: always
+    ports:
+      - "8848:8848"
+  kafka.mall:
+    image: chinaskill-kafka:v1.1
+    container_name: mall-kafka
+    restart: always
+    ports:
+      - "9092:9092"
+  mall:
+    image: chinaskill-nginx:v1.1
+    container_name: mall-nginx
+    restart: always
+    ports:
+      - "81:80"
+      - "1443:443"
+    depends_on:
+      - mysql.mall
+      - redis.mall
+      - zookeeper.mall
+      - kafka.mall
+  mall-admin:
+    image: mall/mall-admin:1.0-SNAPSHOT
+    container_name: mall-admin
+    ports:
+      - 8080:8080
+    links:
+      - mysql.mall:db
+  mall-gateway:
+    image: mall/mall-gateway:1.0-SNAPSHOT
+    container_name: mall-gateway
+    ports:
+      - 8201:8201
+    links:
+      - redis.mall:redis
+      - nacos.mall:nacos-registry
+  mall-auth:
+    image: mall/mall-auth:1.0-SNAPSHOT
+    container_name: mall-auth
+    ports:
+      - 8401:8401
+    links:
+      - nacos.mall:nacos-registry
+```
+
+
+
+## mall-admin
+
+```yaml
+version: '3'
+services:
+  mysql:
+    image: mall-mysql:v1.0
+    container_name: mysql
+    restart: always
+    ports:
+      - 3306:3306
+  redis:
+    image: mall-redis:v1.0
+    container_name: redis
+    ports:
+      - 6379:6379
+  nginx:
+    image: mall-nginx:v1.0
+    container_name: nginx
+    ports:
+      - 8888:80
+  rabbitmq:
+    image: mall-rabbit:v1.0
+    container_name: rabbitmq
+    ports:
+      - 5672:5672
+      - 15672:15672
+  nacos-registry:
+    image: mall-nacos:v1.0
+    container_name: nacos-registry
+    ports:
+      - 8848:8848
+  mall-admin:
+    image: mall/mall-admin:1.0-SNAPSHOT
+    container_name: mall-admin
+    ports:
+      - 8080:8080
+    links:
+      - mysql:db
+  mall-gateway:
+    image: mall/mall-gateway:1.0-SNAPSHOT
+    container_name: mall-gateway
+    ports:
+      - 8201:8201
+    links:
+      - redis:redis
+      - nacos-registry:nacos-registry
+  mall-auth:
+    image: mall/mall-auth:1.0-SNAPSHOT
+    container_name: mall-auth
+    ports:
+      - 8401:8401
+    links:
+      - nacos-registry:nacos-registry
+
+```
+
