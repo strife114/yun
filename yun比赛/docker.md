@@ -208,8 +208,8 @@ ADD mall-repo /opt/mall-repo
 ADD local.repo /etc/yum.repos.d/
 RUN yum clean all
 RUN yum -y install redis
-RUN sed -i -e 's@bind 127.0.0.1@bind 0.0.0.0@g' /etc/redis.conf
-RUN sed -i -e 's@protected-mode yes@protected-mode no@g' /etc/redis.conf
+RUN sed -i -e 's/bind 127.0.0.1/bind 0.0.0.0/g' /etc/redis.conf
+RUN sed -i -e 's/protected-mode yes/protected-mode no/g' /etc/redis.conf
 EXPOSE 6379
 ENTRYPOINT ["redis-server","/etc/redis.conf"]
                                       
@@ -308,7 +308,6 @@ ENV MARIADB_USER root
 ENV MARIADB_PASS 123456
 
 ENV LC_ALL en_US.UTF8
-ADD mall.sql /root/
 ADD db_init.sh /root/
 RUN chmod 755 /root/db_init.sh
 RUN yum install -y mariadb-server
@@ -469,6 +468,41 @@ sleep 8
 /usr/lib/rabbitmq/bin/rabbitmqctl set_permissions -p mall mall '.*' '.*' '.*'
 /usr/lib/rabbitmq/bin/rabbitmq-plugins enable rabbitmq_management
 /usr/lib/rabbitmq/bin/rabbitmq-server restart
+```
+
+
+
+## 构建Piq镜像
+
+启动脚本
+
+```
+#!/bin/bash
+sleep 60
+nohup java -jar /root/pig-register.jar  $JAVA_OPTS  >/dev/null 2>&1 &
+sleep 60
+nohup java -jar /root/pig-gateway.jar  $JAVA_OPTS >/dev/null 2>&1 &
+sleep 20
+nohup java -jar /root/pig-auth.jar  $JAVA_OPTS >/dev/null 2>&1 &
+sleep 20
+nohup java -jar /root/pig-upms-biz.jar  $JAVA_OPTS >/dev/null 2>&1 &
+sleep 20
+```
+
+Dockerfile-Pig
+
+```
+FROM centos:centos7.5.1804
+MAINTAINER Chinaskills
+COPY service /root
+ADD yum /root/yum
+RUN rm -rfv /etc/yum.repos.d/*
+COPY local.repo /etc/yum.repos.d/local.repo
+RUN yum install -y java-1.8.0-openjdk java-1.8.0-openjdk-devel
+COPY pig-start.sh /root
+RUN chmod +x /root/pig-start.sh
+EXPOSE 8848 9999 3000 4000
+CMD ["/bin/bash","/root/pig-start.sh"]
 ```
 
 
@@ -857,5 +891,62 @@ services:
     links:
       - nacos-registry:nacos-registry
 
+```
+
+
+
+
+
+
+
+## Pig
+
+```yaml
+version: '2'
+services:
+  pig-mysql:
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    restart: always
+    container_name: pig-mysql
+    image: pig-mysql:v1.0
+    ports:
+      - 3306:3306
+    links:
+      - pig-service:pig-register
+  pig-redis:
+    image: pig-redis:v1.0
+    ports:
+      - 6379:6379
+    restart: always
+    container_name: pig-redis
+    hostname: pig-redis
+    links:
+      - pig-service:pig-register
+  pig-service:
+    ports:
+      - 8848:8848
+      - 9999:9999
+    restart: always
+    container_name: pig-service
+    hostname: pig-service
+    image: pig-service:v1.0
+    extra_hosts:
+      - pig-register:127.0.0.1
+      - pig-upms:127.0.0.1
+      - pig-gateway:127.0.0.1
+      - pig-auth:127.0.0.1
+      - pig-hou:127.0.0.1
+    stdin_open: true
+    tty: true
+    privileged: true
+  pig-ui:
+    restart: always
+    container_name: pig-ui
+    image: pig-ui:v1.0
+    ports:
+      - 8888:80
+    links:
+      - pig-service:pig-gateway
 ```
 
