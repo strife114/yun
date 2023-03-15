@@ -188,3 +188,204 @@ spec:
 kubectl create -f my-service.yaml
 ```
 
+
+
+
+
+## 应用滚动升级
+
+1. 编写yaml文件
+
+   ```
+   # vim httpd.conf
+   apiVersion: apps/v1beta1
+   kind: Deployment
+   metadata:
+     name: httpd
+   spec:
+     replicas: 3
+     template:
+       metadata:
+         labels:
+           run: httpd
+       spec:
+         containers:
+           - name: httpd
+             image: 10.18.4.10/library/httpd:2.2.31
+             ports:
+               - containerPort: 80
+   ```
+
+2. 启动Deployment
+
+   ```
+   kubectl create -f httpd.yaml 
+    
+   kubectl get pods
+   ```
+
+3. 查看Deployment
+
+   ```
+   kubectl get deployments httpd -o wide
+   
+   NAME READY UP-TO-DATE AVAILABLE AGE CONTAINERS IMAGES SELECTOR
+   httpd    3/3      3           3        93s    httpd     httpd:2.2.31  run=httpd
+   ```
+
+4. 修改yaml文件
+
+   ```
+   apiVersion: apps/v1beta1
+   kind: Deployment
+   metadata:
+     name: httpd
+   spec:
+     replicas: 3
+     template:
+       metadata:
+         labels:
+           run: httpd
+       spec:
+         containers:
+           - name: httpd
+             image: 10.18.4.10/library/httpd:2.2.32    //将2.2.31更改为2.2.32
+             ports:
+               - containerPort: 80
+   ```
+
+5. 启动
+
+   ```
+    kubectl apply -f httpd.yaml
+   ```
+
+6. 查看
+
+   ```
+   kubectl get deployments httpd -o wide
+   
+   NAME READY UP-TO-DATE AVAILABLE AGE CONTAINERS IMAGES SELECTOR
+   httpd    3/3      3       3            7m53s   httpd   httpd:2.2.32  run=httpd
+   
+   # 查看Deployment详细信息
+   kubectl describe deployment httpd
+   ```
+
+
+
+
+
+### 回滚
+
+```
+创建3个配置文件，内容中唯一不同的就是镜像的版本号。
+vim  httpd.v1.yaml 
+
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: httpd
+spec:
+  revisionHistoryLimit: 10  # 指定保留最近的几个revision
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        run: httpd
+    spec:
+      containers:
+        - name: httpd
+          image: 10.18.4.10/library/httpd:2.2.16
+          ports:
+            - containerPort: 80
+```
+
+```
+vim  httpd.v2.yaml 
+
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: httpd
+spec:
+  revisionHistoryLimit: 10  # 指定保留最近的几个revision
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        run: httpd
+    spec:
+      containers:
+        - name: httpd
+          image: 10.18.4.10/library/httpd:2.2.17
+          ports:
+            - containerPort: 80
+```
+
+```
+vim  httpd.v3.yaml 
+
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: httpd
+spec:
+  revisionHistoryLimit: 10  # 指定保留最近的几个revision
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        run: httpd
+    spec:
+      containers:
+        - name: httpd
+          image: 10.18.4.10/library/httpd:2.2.18
+          ports:
+            - containerPort: 80
+```
+
+```
+# 部署Deployment
+# kubectl apply -f httpd.v1.yaml --record
+deployment.apps/httpd configured
+# kubectl apply -f httpd.v2.yaml --record
+deployment.apps/httpd configured
+# kubectl apply -f httpd.v3.yaml --record
+deployment.apps/httpd configured
+
+# --record的作用是将当前命令记录到revision中，可以知道每个revision对应的是哪个配置文件
+```
+
+```
+# 查看deployment
+ kubectl get deployments -o wide
+ 
+# 查看revision历史记录
+ kubectl rollout history deployment httpd
+ 
+ deployment.extensions/httpd 
+REVISION  CHANGE-CAUSE
+1         <none>
+2         <none>
+3         kubectl apply --filename=httpd.v1.yaml --record=true
+4         kubectl apply --filename=httpd.v2.yaml --record=true
+5         kubectl apply --filename=httpd.v3.yaml --record=true
+```
+
+```
+# 回滚
+ kubectl rollout undo deployment httpd --to-revision=1
+deployment.extensions/httpd rolled back4
+
+ kubectl get deployments -o wide
+NAME READY UP-TO-DATE AVAILABLE AGE CONTAINERS IMAGES SELECTOR
+httpd    3/3       3            3      35m     httpd    10.18.4.10/library/httpd:2.2.31 run=httpd
+
+# 再次查看Deployment可以看到httpd版本已经回退了。
+# 查看revision历史记录，可以看到revision记录也发生了变化。
+kubectl rollout history deployment httpd
+deployment.extensions/httpd 
+......
+```
+
