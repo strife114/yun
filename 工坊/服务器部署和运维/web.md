@@ -1,6 +1,7 @@
-
 # 安装mysql（编译）
-## mysql(8.0)
+
+## Mysql(8.0)
+
 1. 下载rpm包
 
    ```
@@ -102,12 +103,126 @@
 12. 补充
 
     ```
-    mysql> set password for 'root'@'localhost'=password('1qaz!QAZ');   修改密码
-    mysql> grant all privileges on *.* to 'root'@'%' identified by '1qaz!QAZ' with grant option;   开放远程登录
-    mysql> flush privileges; 保存然后退出 
-    ```
-
+     set password for 'root'@'localhost'=password('1qaz!QAZ');   修改密码
+    grant all privileges on *.* to 'root'@'%' identified by '1qaz!QAZ' with grant option;   开放远程登录
+     flush privileges; 保存然后退出 
+     
+     
+     
+    # MySQL密码策略默认是通过validate_password_policy属性进行设置的
     
+    mysql> select @@validate_password_policy;
+    +----------------------------+
+    | @@validate_password_policy |
+    +----------------------------+
+    | MEDIUM                     |
+    +----------------------------+
+    1 row in set (0.00 sec)
+    
+    
+    # 策略为0时，密码强度最低，只要长度满足就可以了。策略为1时，也就是MEDIUM，不仅需要长度满足，还有数字，大小写，特殊字符要求
+    mysql> set global validate_password_policy=0;
+    
+    在命令行只是临时生效，要想永久生效，则必须在/etc/my.cnf文件中进行配置。
+    ```
+    
+
+
+
+## Mysql(5.6.45)
+
+1. 下载解压
+
+   ```
+   cd /usr/local/src
+   wget -c -t 0 https://dev.mysql.com/get/Downloads/MySQL-5.6/mysql-5.6.45-linux-glibc2.12-x86_64.tar.gz 
+   
+   tar -zxvf mysql-5.6.45-linux-glibc2.12-x86_64.tar.gz
+   ```
+
+2. 建立用户并配置文件权限
+
+   ```
+   useradd -s /sbin/nologin mysql
+   mkdir -p /data/mysql
+   chown -R mysql.mysql /data/mysql
+   
+   # 检测是否有mysql目录，如果没有则不执行
+   [ -d /usr/local/mysql ] && mv /usr/local/mysql /usr/local/mysql_old
+   
+   mv mysql-5.6.45-linux-glibc2.12-x86_64 /usr/local/mysql
+   
+   ```
+
+3. 安装
+
+   ```
+   cd /usr/local/mysql
+   
+   # --user表示定义数据库的以哪个用户的身份运
+   # --datadir表示定义数据库的安装目录
+   ./scripts/mysql_install_db --user=mysql --datadir=/data/mysql
+   
+   cp support-files/my-default.cnf /etc/my.cnf
+   cp support-files/mysql.server /etc/init.d/mysql
+   
+   chmod 755 /etc/init.d/mysql
+   ```
+
+4. 修改配置文件
+
+   ```
+   vim /etc/init.d/mysql
+   
+   datadir=/data/mysql
+   ```
+
+5. 设置自启
+
+   ```
+   chkconfig mysql on
+   ```
+
+6. 验证
+
+   ```
+   cd /etc/init.d
+   ./mysql start
+   ```
+
+7. 配置环境变量
+
+   ```
+   vim /etc/profile
+   # 执行文件在/usr/local/mysql/bin下
+   export PATH=/usr/local/mysql/bin:/usr/local/mysql/lib:$PATH
+   
+   # 生效
+   source /etc/profile
+   ```
+
+8. 设置密码
+
+   ```
+   vim /etc/my.cnf
+   
+   skip-grant-tables
+   
+   # 直接回车
+   mysql -uropt =p
+   
+   alter user 'root'@'localhost' identified by '123456';
+   或
+   set password for 'root'@'localhost'=password('1qaz!QAZ');   修改密码
+   
+   flush privileges;
+   
+   
+   # 直接在外面输入命令修改密码
+   mysqladmin -u "$MARIADB_USER" password "$MARIADB_PASS"
+   ```
+
+   
 
 # 安装apache
 
