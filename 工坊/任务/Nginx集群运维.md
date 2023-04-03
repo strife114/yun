@@ -362,19 +362,19 @@
 3. 访问
 
    ```sh
-   [root@localhost ~]# curl 192.168.223.201
+   [root@localhost ~]# curl 192.168.223.200
    <h1>111</h1>
-   [root@localhost ~]# curl 192.168.223.201
+   [root@localhost ~]# curl 192.168.223.200
    <h1>222</h1>
-   [root@localhost ~]# curl 192.168.223.201
+   [root@localhost ~]# curl 192.168.223.200
    <h1>111</h1>
-   [root@localhost ~]# curl 192.168.223.201
+   [root@localhost ~]# curl 192.168.223.200
    <h1>222</h1>
-   [root@localhost ~]# curl 192.168.223.201
+   [root@localhost ~]# curl 192.168.223.200
    <h1>111</h1>
-   [root@localhost ~]# curl 192.168.223.201
+   [root@localhost ~]# curl 192.168.223.200
    <h1>222</h1>
-   [root@localhost ~]# curl 192.168.223.201
+   [root@localhost ~]# curl 192.168.223.200
    <h1>111</h1>
    ```
 
