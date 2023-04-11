@@ -225,6 +225,10 @@ tcp6       0      0 :::22                   :::*                    LISTEN      
 
 # Web界面操作
 
+admin:admin
+
+password:admin
+
 ## Data sources创建
 
 1. 点击data sources
