@@ -224,6 +224,7 @@ tcp6       0      0 :::22                   :::*                    LISTEN      
 
 
 # Web界面操作
+浏览器访问本机ip:3000
 
 admin:admin
 
