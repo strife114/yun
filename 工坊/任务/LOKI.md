@@ -43,7 +43,7 @@ Loki分两部分，Loki是日志引擎部分，Promtail是收集日志端，然�
 # 自定义Loki配置文件
 
 ```yaml
-[root@localhost ~]# cat loki.yaml
+[root@master ~]# cat loki.yaml
 auth_enabled: false
 
 server:
@@ -108,7 +108,7 @@ limits_config:
 # 自定义Promtail配置文件
 
 ```yaml
-[root@localhost ~]# cat promtail.yaml 
+[root@master ~]# cat promtail.yaml 
 server:
   http_listen_port: 9080
   grpc_listen_port: 0
