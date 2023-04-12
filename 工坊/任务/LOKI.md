@@ -366,6 +366,10 @@ password:admin
 
 ## Web界面测试
 
+前提：
+
+1. 先去访问apache网页生成日志(http://192.168.223.7)
+
 ![image-20230411104106588](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/LOKI/apache1)
 
 ![image-20230411104132183](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/LOKI/apache2)
