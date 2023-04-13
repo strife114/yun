@@ -590,7 +590,7 @@ discovery.zen.ping.unicast.hosts: ["elk-1", "elk-2","elk-3"]
 2. 安装
 
    ```sh
-   [root@elk-2 ~]# rpm -ivh logstash-6.0.0.0.rpm
+   [root@elk-2 ~]# rpm -ivh logstash-6.0.0.rpm
    ```
 
    
