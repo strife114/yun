@@ -34,7 +34,23 @@
 
 
 
+# 时间同步
 
+1. 所有机器配置时间同步
+
+   ```sh
+   [root@elk-1 ~]# yum install -y ntp
+   [root@elk-2 ~]# yum install -y ntp
+   [root@elk-3 ~]# yum install -y ntp
+   
+   
+   [root@elk-1 ~]# systemctl start ntpd
+   [root@elk-1 ~]# systemctl enable ntpd
+   [root@elk-2 ~]# ntpdate elk-1
+   [root@elk-3 ~]# ntpdate elk-1
+   ```
+
+   
 
 # ELK
 
@@ -481,11 +497,41 @@ discovery.zen.ping.unicast.hosts: ["elk-1", "elk-2","elk-3"]
 
    ```sh
    [root@elk-1 log]# vim /etc/nginx/nginx.conf
-   # 找到下面这个标识，在其下面加入数据
-   	# Load modular configuration files from the /etc/nginx/conf.d directory.
-       # See http://nginx.org/en/docs/ngx_core_module.html#include
-       # for more information.
-           upstream  elasticsearch{
+   user  nginx;
+   worker_processes  auto;
+   
+   error_log  /var/log/nginx/error.log notice;
+   pid        /var/run/nginx.pid;
+   
+   
+   events {
+       worker_connections  1024;
+   }
+   
+   
+   http {
+       include       /etc/nginx/mime.types;
+       default_type  application/octet-stream;
+   
+       log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                         '$status $body_bytes_sent "$http_referer" '
+                         '"$http_user_agent" "$http_x_forwarded_for"';
+   
+       access_log  /var/log/nginx/access.log  main;
+   
+       sendfile        on;
+       #tcp_nopush     on;
+   
+       keepalive_timeout  65;
+   log_format main2 '$http_host $remote_addr - $remote_user [$time_local]
+   "$request" '
+                         '$status $body_bytes_sent "$http_referer" '
+                         '"$http_user_agent" "$upstream_addr" $request_time';
+      
+       access_log  /var/log/nginx/access.log  main2;
+   
+       #gzip  on;
+       upstream  elasticsearch{
        server  192.168.223.100:9200;
        server  192.168.223.101:9200;
        server  192.168.223.102:9200;
@@ -500,10 +546,9 @@ discovery.zen.ping.unicast.hosts: ["elk-1", "elk-2","elk-3"]
        proxy_set_header X-Real-IP $remote_addr;
        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
    }
-   	access_log /var/log/es_access.log;
    }
-      
-   
+       access_log /var/log/es_access.log;
+   }
    ```
 
 3. 修改Kibana配置文件
