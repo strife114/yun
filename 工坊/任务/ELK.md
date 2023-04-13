@@ -843,23 +843,8 @@ discovery.zen.ping.unicast.hosts: ["elk-1", "elk-2","elk-3"]
     	index => "system-log-%{+YYYY.MM.dd}"
     }
     }
-   [root@elk-2 ~]# cat /etc/logstash/conf.d/syslog.conf
-   input {
-    file {
-    	path => "/var/log/messages"
-    	type => "systemlog"
-    	start_position => "beginning"
-    	stat_interval => "3"
-    }
-   }
-   output {
-    elasticsearch {
-    	hosts => ["192.168.223.100:9200","192.168.223.101:9200","192.168.223.102:9200"]
-    	index => "system-log-%{+YYYY.MM.dd}"
-    }
-    }
    ```
-
+   
 4. 检测配置文件
 
    ```sh
