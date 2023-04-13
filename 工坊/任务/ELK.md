@@ -600,7 +600,7 @@ discovery.zen.ping.unicast.hosts: ["elk-1", "elk-2","elk-3"]
 1. 修改配置文件
 
    ```sh
-   [root@elk-2 ~]# cat /etc/elasticsearch/elasticsearch.yml 
+   [root@elk-2 ~]# cat /etc/logstash/logstash.yml 
    # Settings file in YAML
    #
    # Settings can be specified either in hierarchical form, e.g.:
