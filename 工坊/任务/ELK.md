@@ -484,7 +484,7 @@ discovery.zen.ping.unicast.hosts: ["elk-1", "elk-2","elk-3"]
 1. 下载nginx
 
    ```sh
-   [root@elk-1 ~]# wget -O /etc/yum.repos.d/epel.repo http://mirrors.aliyun.com/repo/epel-7.repo
+   [root@elk-1 ~]#  rpm -Uvh http://nginx.org/packages/centos/7/noarch/RPMS/nginx-release-centos-7-0.el7.ngx.noarch.rpm
    [root@elk-1 ~]# yum install -y nginx
    
    
