@@ -34,24 +34,6 @@
 
 
 
-# 时间同步
-
-1. 所有机器配置时间同步
-
-   ```sh
-   [root@elk-1 ~]# yum install -y ntp
-   [root@elk-2 ~]# yum install -y ntp
-   [root@elk-3 ~]# yum install -y ntp
-   
-   
-   [root@elk-1 ~]# systemctl start ntpd
-   [root@elk-1 ~]# systemctl enable ntpd
-   [root@elk-2 ~]# ntpdate elk-1
-   [root@elk-3 ~]# ntpdate elk-1
-   ```
-
-   
-
 # ELK
 
 ## 基础环境配置
@@ -87,7 +69,21 @@
    [root@elk-1 ~]# scp /etc/hosts 192.168.223.102:/etc/hosts
    ```
 
+3. 时间同步
 
+   ```sh
+   [root@elk-1 ~]# yum install -y ntp
+   [root@elk-2 ~]# yum install -y ntp
+   [root@elk-3 ~]# yum install -y ntp
+   
+   
+   [root@elk-1 ~]# systemctl start ntpd
+   [root@elk-1 ~]# systemctl enable ntpd
+   [root@elk-2 ~]# ntpdate elk-1
+   [root@elk-3 ~]# ntpdate elk-1
+   ```
+
+   
 
 ## JDK安装
 
