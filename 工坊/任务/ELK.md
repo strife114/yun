@@ -894,7 +894,7 @@ discovery.zen.ping.unicast.hosts: ["elk-1", "elk-2","elk-3"]
    # 注意
    1.启动服务后，有进程但是没有9600端口
      # 可能是权限问题，查看权限
-     [root@elk-2 ~]# ll /var/lig/logstash/
+     [root@elk-2 ~]# ll /var/log/logstash/
      # 因为之前我们以root的身份在终端启动过Logstash，所以产⽣的相关⽂件的权限⽤户和权限组都是root
      # 修改/var/lib/logstash/⽬录的所属者为logstash，并重启服务
      [root@elk-2 ~]# chown -R logstash /var/lib/logstash/
@@ -905,7 +905,6 @@ discovery.zen.ping.unicast.hosts: ["elk-1", "elk-2","elk-3"]
 7. 在elk-1查看日志
 
    ```sh
-   [root@elk-1 ~]# curl '111.111.0.134:9200/_cat/indices?v
    [root@elk-1 log]# curl '192.168.223.100:9200/_cat/indices?v'
    health status index                     uuid                   pri rep docs.count docs.deleted store.size pri.store.size
    green  open   .kibana                   yGqeNHh7SSidv1PxOUXWTw   1   1          4            0     50.2kb         25.1kb
@@ -916,8 +915,8 @@ discovery.zen.ping.unicast.hosts: ["elk-1", "elk-2","elk-3"]
    [root@elk-1 ~]# curl -XGET/DELETE '192.168.223.100:9200/system-log-2022.03.0
    9?pretty'
    ```
-
    
+
 
 ### Web界面配置索引
 
@@ -1057,6 +1056,24 @@ discovery.zen.ping.unicast.hosts: ["elk-1", "elk-2","elk-3"]
    }
    ```
 
+2. 编辑监听nginx日志配置文件
+
+   ```sh
+   [root@elk-2 ~]# # vim /etc/nginx/conf.d/elk.conf
+   server {
+         listen 80;
+         server_name elk.test.com;
+         location / {
+             proxy_pass      http://192.168.223.100:5601;
+             proxy_set_header Host   $host;
+             proxy_set_header X-Real-IP      $remote_addr;
+             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+   }
+         access_log  /var/log/nginx/elk_access.log main2;
+   }
+   
+   ```
+
    
 
 ### Logstash配置
@@ -1095,7 +1112,16 @@ discovery.zen.ping.unicast.hosts: ["elk-1", "elk-2","elk-3"]
    
    ```
 
-2. elk-1检测索引
+2. 重启nginx、logstash服务
+
+   ```sh
+   [root@elk-2 nginx]# systemctl restart logstash
+   [root@elk-2 nginx]# systemctl restart nginx
+   ```
+
+   
+
+3. elk-1检测索引
 
    ```sh
    [root@elk-1 log]# curl '192.168.223.100:9200/_cat/indices?v'
