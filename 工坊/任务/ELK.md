@@ -894,7 +894,7 @@ discovery.zen.ping.unicast.hosts: ["elk-1", "elk-2","elk-3"]
    # 注意
    1.启动服务后，有进程但是没有9600端口
      # 可能是权限问题，查看权限
-     [root@elk-2 ~]# ll /var/log/logstash/
+     [root@elk-2 ~]# ll /var/lib/logstash/
      # 因为之前我们以root的身份在终端启动过Logstash，所以产⽣的相关⽂件的权限⽤户和权限组都是root
      # 修改/var/lib/logstash/⽬录的所属者为logstash，并重启服务
      [root@elk-2 ~]# chown -R logstash /var/lib/logstash/
