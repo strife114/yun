@@ -608,3 +608,215 @@
 ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/chushihua7.png)
 
 ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/chushihua8.png)
+
+
+
+
+
+## 部署Client代理端
+
+1. 下载安装
+
+   ```sh
+   [root@client ~]# rpm -Uvh https://repo.zabbix.com/zabbix/4.0/rhel/7/x86_64/zabbix-release-4.0-2.el7.noarch.rpm
+   
+   [root@client ~]# yum -y install zabbix-agent
+   ```
+
+2. 修改zabbix代理配置文件
+
+   ```sh
+   [root@client ~]# vim /etc/zabbix/zabbix_agentd.conf		'//修改zabbix代理配置文件'
+   # 98行，指向监控服务器地址
+   Server=192.168.223.7
+   # 139行，指向监控服务器地址
+   ServerActive=192.168.223.7
+   # 150行，修改名称
+   Hostname=Zabbix-test
+   
+   ```
+
+3. 开启服务并自启
+
+   ```sh
+   [root@client ~]# systemctl start zabbix-agent.service && systemctl enable zabbix-agent.service
+   
+   # 查看端口
+   [root@client ~]# netstat -ntap |grep 'zabbix'
+   tcp        0      0 0.0.0.0:10050           0.0.0.0:*               LISTEN      11706/zabbix_agentd 
+   tcp6       0      0 :::10050                :::*                    LISTEN      11706/zabbix_agentd
+   ```
+
+   
+
+
+
+
+
+# 创建监控主机
+
+1. 点击右上角用户图标，设置中文显示
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/zhuji1.png)
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/zhuji2.png)
+
+2. 创建主机
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/zhuji3.png)
+
+3. 链接监控模板
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/zhuji4.png)
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/zhuji5.png)
+
+4. 查看主机列表
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/zhuji6.png)
+
+5. 查看监控数据
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/zhuji7.png)
+
+   
+
+
+
+# 邮箱告警
+
+## 邮件部署
+
+1. 下载
+
+   ```sh
+   [root@server ~]# yum install -y mailx
+   ```
+
+2. 修改配置文件
+
+   ```sh
+   [root@server ~]# vim /etc/mail.rc
+   # 在文件末尾添加
+   set bsdcompat
+   set from=1272776782@qq.com
+   set smtp=smtp.qq.com
+   set smtp-auth-user=1272776782@qq.com
+   set smtp-auth-password=授权码
+   set smtp-auth=login
+   
+   ```
+
+3. 测试
+
+   ```sh
+   [root@server ~]# echo "hello world" | mail -s "testmail" 1272776782@qq.com
+   
+   # 注意
+   1. 会在自己的邮箱中出现信息
+   ```
+
+4. 编写脚本发送邮件
+
+   ```sh
+   [root@server ~]# cd /usr/lib/zabbix/alertscripts
+   [root@server ~]# cat mailx.sh
+   #!/bin/bash
+   #send mail
+   
+   messages=`echo $3 | tr '\r\n' '\n'`
+   subject=`echo $2 | tr '\r\n' '\n'`
+   echo "${messages}" | mail -s "${subject}" $1 >>/tmp/mailx.log 2>&1
+   
+   
+   
+   # 创建日志并赋权
+   [root@server alertscripts]# touch /tmp/mailx.log
+   [root@server alertscripts]# chown -R zabbix.zabbix  /tmp/mailx.log
+   [root@server alertscripts]# chmod +x /usr/lib/zabbix/alertscripts/mailx.sh
+   [root@server alertscripts]# chown -R zabbix.zabbix /usr/lib/zabbix/
+   
+   
+   # 测试
+   ./mailx.sh 1272776782@qq.com "主题" "内容"
+   ./mailx.sh 1272776782@qq.com "2020" "jiayou wuhan"
+   ```
+
+   
+
+
+
+
+
+# zabbix邮箱脚本告警
+
+1. 管理 -----> 报警媒体类型 -----> 创建媒体类型 ----->
+
+   ```
+   名称：Mail-Test
+   类型：脚本
+   脚本名称：mailx.sh
+   脚本参数：
+   {ALERT.SENDTO}
+   {ALERT.SUBJECT}
+   {ALERT.MESSAGE}
+   ```
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/youxiang1.png)
+
+2. 管理 -----> 用户 -----> 点击Admin -----> 报警媒介
+
+   ```
+   类型：Mail-Test //调用上面的脚本
+   收件人：1272776782@qq.com
+   其它默认-添加
+   ```
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/youxiang2.png)
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/youxiang3.png)
+
+3. 配置 -----> 动作 -----> 创建动作 -----> 删除默认标签，修改触发条件
+
+   ```
+   名称：Mailx
+   条件 A 主机群组=Linux servers
+   ```
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/youxiang4.png)
+
+4. 操作 -----> 如下配置
+
+   ```
+   默认操作步骤持续时间 60
+   默认信息：
+   
+   告警主机：{HOST.NAME}
+   告警  IP：{HOST.IP}
+   告警时间：{EVENT.DATE}-{EVENT.TIME}
+   告警等级：{TRIGGER.SEVERITY}
+   告警信息：{TRIGGER.NAME}:{ITEM.VALUE}
+   事件  ID：{EVENT.ID}
+   
+   ```
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/youxiang5.png)
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/youxiang6.png)
+
+5. 恢复操作
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/youxiang7.png)
+
+6. 重启server服务
+
+   ```sh
+   [root@server ~]# systemctl restart zabbix-server
+   [root@server ~]# systemctl restart zabbix-agent.service
+   ```
+
+7. 在 web界面中，监控主机上模板中选择一个 Zabbix Agent 选项
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/youxiang8.png)
+
+8. 在被监控主机上关闭服务等待邮件即可
