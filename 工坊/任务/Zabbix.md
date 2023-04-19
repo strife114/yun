@@ -631,8 +631,8 @@
    Server=192.168.223.7
    # 139行，指向监控服务器地址
    ServerActive=192.168.223.7
-   # 150行，修改名称
-   Hostname=Zabbix-test
+   # 150行，指向client名称
+   Hostname=client
    
    ```
 
