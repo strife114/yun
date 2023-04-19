@@ -545,6 +545,7 @@
    [root@server ~]# cd /usr/share/nginx/html
    [root@server html]# cd zabbix
    [root@server zabbix]# mv * ../
+   [root@server zabbix]# cd ..
    [root@server html]# rm -rf zabbix
    ```
 
@@ -1192,6 +1193,14 @@
    
    # 注意
    1. 出现mysql: [Warning] Using a password on the command line interface can be insecure.的警告，说明密码已在日志中显示，我们在以后的工作中不能这样子，这会加大密码泄露的风险
+      解决方式
+      [root@slave ~]# vim /etc/my.passwd
+      [client]
+      user=root
+      password=123456
+      host=localhost
+      [root@slave ~]# mysql --defaults-extra-file=/etc/my.passwd  -e "show slave status\G" | grep "Running" |awk "{print $2}" |    grep -c "Yes"   
+      2
    ```
 
    
