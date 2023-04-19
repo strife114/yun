@@ -473,7 +473,7 @@
     phpinfo();
    ?>
    
-   # 访问网页192.168.126.11/info.php测试
+   # 访问网页192.168.223.100/info.php测试
    ```
 
 7. 测试数据库是否连接
@@ -489,7 +489,7 @@
    
    
    
-   # 访问网页192.168.126.11/info.php测试
+   # 访问网页192.168.223.100/info.php测试
    
    ```
 
@@ -510,7 +510,7 @@
     else echo "连接失败";
    ?>
    
-   # 访问网页【192.168.126.11/info.php】测试
+   # 访问网页【192.168.223.100/info.php】测试
    ```
 
    
@@ -825,7 +825,7 @@
 
 
 
-# Nginx自动化监控以及告警自启
+# Nginx自动化流量监控以及告警自启
 
 ## nginx部署
 
@@ -1165,3 +1165,34 @@
 2. 验证
 
    ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxzq2.png)
+
+
+
+
+
+
+
+
+
+# MySQL自动化状态监控以及告警
+
+## MySQL主从部署
+
+1. 详细请看https://gitee.com/fan-dongyuan/yun/blob/master/%E5%B7%A5%E5%9D%8A/%E4%BB%BB%E5%8A%A1/MySQL.md
+
+2. 做到读写分离前即可
+
+3. 测试拉取主从状态值
+
+   ```sh
+   [root@slave ~]# mysql -u root -p123456 -e "show slave status\G" | grep "Running" |awk "{print $2}" | grep -c "Yes"   
+   mysql: [Warning] Using a password on the command line interface can be insecure.
+   2
+   
+   
+   # 注意
+   1. 出现mysql: [Warning] Using a password on the command line interface can be insecure.的警告，说明密码已在日志中显示，我们在以后的工作中不能这样子，这会加大密码泄露的风险
+   ```
+
+   
+
