@@ -540,8 +540,8 @@
    mysql> show tables;
    
    # 将zabbix配置文件复制
-   [root@server ~]# cp -r /usr/share/zabbix/ /usr/share/nginx/html/
    [root@server ~]# rm -rf /usr/share/nginx/html/*
+   [root@server ~]# cp -r /usr/share/zabbix/ /usr/share/nginx/html/
    [root@server ~]# cd /usr/share/nginx/html
    [root@server html]# cd zabbix
    [root@server zabbix]# mv * ../
