@@ -628,9 +628,9 @@
    ```sh
    [root@client ~]# vim /etc/zabbix/zabbix_agentd.conf		'//修改zabbix代理配置文件'
    # 98行，指向监控服务器地址
-   Server=192.168.223.7
+   Server=192.168.223.100
    # 139行，指向监控服务器地址
-   ServerActive=192.168.223.7
+   ServerActive=192.168.223.100
    # 150行，指向client名称
    Hostname=client
    
