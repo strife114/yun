@@ -820,3 +820,348 @@
    ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/youxiang8.png)
 
 8. 在被监控主机上关闭服务等待邮件即可
+
+
+
+
+
+# Nginx自动化监控以及告警自启
+
+## nginx部署
+
+1. 下载安装
+
+   ```sh
+   [root@client ~]# vim /etc/yum.repos.d/nginx.repo
+   [nginx-stable]
+   name=nginx stable repo
+   baseurl=http://nginx.org/packages/centos/$releasever/$basearch/
+   gpgcheck=0
+   enabled=1
+   
+   
+   [root@client ~]# yum install -y nginx
+   [root@client ~]# systemctl start nginx && systemctl enable nginx
+   ```
+
+2. 修改配置文件
+
+   ```sh
+   [root@client scripts]# cat  /etc/nginx/conf.d/default.conf
+   server {
+       listen       80;
+       server_name  localhost;
+   
+       #access_log  /var/log/nginx/host.access.log  main;
+   
+       location / {
+           root   /usr/share/nginx/html;
+           index  index.html index.htm;
+       }
+       # 添加此处
+       location /nginx_status {
+   	stub_status on;
+   	access_log off;
+       }	
+       #error_page  404              /404.html;
+   
+       # redirect server error pages to the static page /50x.html
+       #
+       error_page   500 502 503 504  /50x.html;
+       location = /50x.html {
+           root   /usr/share/nginx/html;
+       }
+   
+       # proxy the PHP scripts to Apache listening on 127.0.0.1:80
+       #
+       #location ~ \.php$ {
+       #    proxy_pass   http://127.0.0.1;
+       #}
+   
+       # pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
+       #
+       #location ~ \.php$ {
+       #    root           html;
+       #    fastcgi_pass   127.0.0.1:9000;
+       #    fastcgi_index  index.php;
+       #    fastcgi_param  SCRIPT_FILENAME  /scripts$fastcgi_script_name;
+       #    include        fastcgi_params;
+       #}
+   
+       # deny access to .htaccess files, if Apache's document root
+       # concurs with nginx's one
+       #
+       #location ~ /\.ht {
+       #    deny  all;
+       #}
+   }
+   
+   ```
+
+3. 重启服务
+
+   ```sh
+   [root@client ~]# systemctl restart nginx
+   ```
+
+4. 浏览器访问
+
+   ```sh
+   http://192.168.223.7/nginx_status/
+   Active connections: 1 
+   server accepts handled requests
+    138 138 126 
+   Reading: 0 Writing: 1 Waiting: 0 
+   
+   # 内容信息如下：
+   Active connections：当前活动的客户端连接数，包括Waiting连接数
+   accepts：接受的客户端连接总数
+   handled：已处理的连接总数
+   requests：客户端请求总数
+   Reading：Nginx正在读取请求头的当前连接数
+   Writing：请求已经接收完成，处于响应过程的连接数
+   Waiting：保持连接模式，处于活动状态的连接数
+   ```
+
+   
+
+## 编写监控脚本
+
+1. 在clinent中编写脚本
+
+   ```sh
+   [root@client ~]# mkdir /home/scripts
+   [root@client ~]# vim /home/scripts/nginx_status.sh
+   #! /bin/bash
+   #date: 2020-01-18
+   # Description：Zabbix4.0监控Nginx1.16.1性能以及进程状态
+   # Note：此脚本需要配置在被监控端
+   
+   HOST="192.168.223.7"
+   PORT="80"
+   
+   # 检测Nginx进程是否存在
+   function ping {
+       /sbin/pidof nginx | wc -l
+   }
+   
+   # 检测Nginx性能
+   function active {
+       /usr/bin/curl "http://$HOST:$PORT/nginx_status/" 2>/dev/null| grep 'Active' | awk '{print $NF}'
+   }
+   function reading {
+       /usr/bin/curl "http://$HOST:$PORT/nginx_status/" 2>/dev/null| grep 'Reading' | awk '{print $2}'
+   }
+   function writing {
+       /usr/bin/curl "http://$HOST:$PORT/nginx_status/" 2>/dev/null| grep 'Writing' | awk '{print $4}'
+   }
+   function waiting {
+       /usr/bin/curl "http://$HOST:$PORT/nginx_status/" 2>/dev/null| grep 'Waiting' | awk '{print $6}'
+   }
+   function accepts {
+       /usr/bin/curl "http://$HOST:$PORT/nginx_status/" 2>/dev/null| awk NR==3 | awk '{print $1}'
+   }
+   function handled {
+       /usr/bin/curl "http://$HOST:$PORT/nginx_status/" 2>/dev/null| awk NR==3 | awk '{print $2}'
+   }
+   function requests {
+       /usr/bin/curl "http://$HOST:$PORT/nginx_status/" 2>/dev/null| awk NR==3 | awk '{print $3}'
+   }
+   
+   $1
+   ```
+
+2. 赋予执行权限
+
+   ```
+   [root@client ~]# chmod 755 /home/scripts/nginx_status.sh
+   ```
+
+3. 本地测试
+
+   ```sh
+   [root@client ~]# sh /home/scripts/nginx_status.sh active
+   1
+   
+   ```
+
+4. 定义监控脚本key
+
+   ```sh
+   [root@client ~]# vim /etc/zabbix/zabbix_agentd.conf
+   # 找到如下类似的变量，并手动添加
+   UnsafeUserParameters=1
+   UserParameter=nginx.status[*],/home/scripts/nginx_status.sh $1
+   
+   ```
+
+5. 重启zabbix agent
+
+   ```sh
+   [root@client ~]# systemctl restart zabbix-agent
+   ```
+
+6. 服务端获取数据
+
+   ```sh
+   [root@server scripts]# zabbix_get -s 192.168.223.7 -k nginx.status[active]
+   1
+   
+   
+   # 注意
+   1.如果没有命令则下载
+     [root@server scripts]# rpm -Uvh https://repo.zabbix.com/zabbix/5.0/rhel/7/x86_64/zabbix-release-5.0-1.el7.noarch.rpm
+     [root@server scripts]# yum clean all
+     [root@server scripts]# yum install zabbix-get
+   ```
+
+   
+
+## 创建nginx模板
+
+1. 创建模板
+
+   配置  ----->> 模板 ---->> 创建模板
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxjk1.png)
+
+   返回模板页已经看到创建的模板已经生成，这时创建的模板是空模板，要在这个模板中创建应用集，监控项等，点击下图中的应用集就可以直接创建
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxjk2.png)
+
+2. 创建应用集
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxjk3.png)
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxjk4.png)
+
+3. 创建监控项
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxjk5.png)
+
+   创建监控项要注意命名方式，能够见名知意，最关键的是键值 ，这里的键值一点要和agent端的配置文件中定义的键值一致
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxjk6.png)
+
+   在监控脚本中一共定义了七个监控项，所以这里需要创建七个，重复上方步骤即可
+
+4. 创建图形
+
+   这里顺便可以显示每个监控项的参数
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxjk7.png)
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxjk8.png)
+
+5. 为监控的主机添加模板
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxjk9.png)
+
+6. 查看最新数据
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxjk10.png)
+
+7. 查看图形
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxjk11.png)
+
+
+
+
+
+
+
+
+
+## 设置nginx邮件告警
+
+1. client安装killall工具
+
+   ```sh
+   [root@client ~]# yum install -y psmisc
+   [root@client ~]# chmod 755 /usr/bin/killall
+   ```
+
+2. 编辑脚本
+
+   ```sh
+   [root@client sh]# cat 1.sh 
+   #!/bin/bash
+   fdy=`ps -ef |grep nginx|grep -v grep|wc -l`
+   if [ $fdy -eq 2 ];then
+   	echo 1
+   else
+   	echo 0
+   fi
+   
+   ```
+   
+3. 配置zabbix_agent.conf
+
+   ```sh
+   [root@client scripts]# vim /etc/zabbix/zabbix_agentd.conf 
+   UnsafeUserParameters=1
+   ### Option: UserParameter
+   #       User-defined parameter to monitor. There can be several user-defined parameters.
+   #       Format: UserParameter=<key>,<shell command>
+   #       See 'zabbix_agentd' directory for examples.
+   #
+   # Mandatory: no
+   # Default:
+   UserParameter=nginx.killall, sh /data/sh/1.sh
+   ```
+   
+4. 重启服务
+
+   ```sh
+   [root@client scripts]# systemctl restart zabbix-agent
+   ```
+
+5. server段测试
+
+   ```sh
+   [root@server scripts]# zabbix_get -s 192.168.223.7 -k "nginx.killall"
+   1
+   ```
+
+6. 注意！
+
+   因为这里本人实验重置了，没有按照上面的实验继续，实验环境的位置在（zabbix邮箱脚本告警）
+
+7. 修改主机名与客户端主机名一致
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxgj1.png)
+
+8. 在client主机上添加监控项（先添加应用集）
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxgj2.png)
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxgj3.png)
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxgj4.png)
+
+9. 创建触发器
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxgj5.png)
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxgj6.png)
+
+10. 在Mailx上添加额外动作
+
+    ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxgj7.png)
+
+11. 关闭客户端nginx服务等待邮件通知
+
+
+
+
+
+## 设置nginx宕机自启
+
+1. 在Mailx的动作中设置额外操作
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxzq1.png)
+
+2. 验证
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/nginxzq2.png)
