@@ -505,7 +505,7 @@
    
    [root@server ~]# vim /usr/share/nginx/html/info.php
    <?php
-    $link=mysqli_connect('127.0.0.1','zabbix','123123');
+    $link=mysqli_connect('127.0.0.1','zabbix','123456');
     if ($link) echo "zabbix数据库连接成功";
     else echo "连接失败";
    ?>
@@ -567,7 +567,7 @@
    # 91行，取消注释
    DBHost=localhost		
    # 124行，设置密码
-   DBPassword=123123		
+   DBPassword=123456		
    ```
 
 5. 开启服务并设置自启
