@@ -1118,7 +1118,7 @@
    [root@client sh]# cat 1.sh 
    #!/bin/bash
    fdy=`ps -ef |grep nginx|grep -v grep|wc -l`
-   if [ $fdy -eq 2 ];then
+   if [ $fdy -ge 2 ];then
    	echo 1
    else
    	echo 0
