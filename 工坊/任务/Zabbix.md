@@ -1431,8 +1431,55 @@
    # 注意：
    1. w2521505194z是钉钉号
    2. 告警内容里面必须有告警二字（前面设置的有关键字）
+   3. 很大概率会出现没有request的报错，解决方法如下：
+      yum install -y python-pip
+      pip install -upgrade pip
+        然后会报一个版本太低或者setup文件的错误，解决方法如下：
+          cd 
+          mkdir app
+          cd a
+          cd app/
+          wget   https://files.pythonhosted.org/packages/37/1b/b25507861991beeade31473868463dad0e58b1978c209de27384ae541b0b/setuptools-40.6.3.zip
+         yum install -y unzip
+         unzip setuptools-40.6.3.zip 
+         cd setuptools-40.6.3
+         python setup.py install
+         cd ..
+         wget https://files.pythonhosted.org/packages/45/ae/8a0ad77defb7cc903f09e551d88b443304a9bd6e6f124e75c0fbbf6de8f7/pip-18.1.tar.gz
+         tar zxvf pip-18.1.tar.gz 
+         cd pip-18.1
+         python setup.py install
+         pip -v
+         pip install requests
+   4. 执行pip install requests时可能会出现如下错误：
+   Collecting requests
+     Downloading https://files.pythonhosted.org/packages/2d/61/08076519c80041bc0ffa1a8af0cbd3bf3e2b62af10435d269a9d0f40564d/requests-2.27.1-py2.py3-none-any.whl (63kB)
+       100% |████████████████████████████████| 71kB 2.7kB/s 
+   Collecting certifi>=2017.4.17 (from requests)
+     Downloading https://files.pythonhosted.org/packages/37/45/946c02767aabb873146011e665728b680884cd8fe70dde973c640e45b775/certifi-2021.10.8-py2.py3-none-any.whl (149kB)
+       6% |██▏                             | 10kB 1.2kB/s eta 0:02:00Exception:
+   Traceback (most recent call last):
+     File "/usr/lib/python2.7/site-packages/pip-18.1-py2.7.egg/pip/_internal/cli/base_command.py", line 143, in main
+       status = self.run(options, args)
+     File "/usr/lib/python2.7/site-packages/pip-18.1-py2.7.egg/pip/_internal/commands/install.py", line 318, in run
+       resolver.resolve(requirement_set)
+     File "/usr/lib/python2.7/site-packages/pip-18.1-py2.7.egg/pip/_internal/resolve.py", line 102, in resolve
+       self._resolve_one(requirement_set, req)
+     File "/usr/lib/python2.7/site-packages/pip-18.1-py2.7.egg/pip/_internal/resolve.py", line 256, in _resolve_one
+       abstract_dist = self._get_abstract_dist_for(req_to_install)
+     File "/usr/lib/python2.7/site-packages/pip-18.1-py2.7.egg/pip/_internal/resolve.py", line 209, in _get_abstract_dist_for
+       self.require_hashes
+     File "/usr/lib/python2.7/site-packages/pip-18.1-py2.7.egg/pip/_internal/operations/prepare.py", line 283, in prepare_linked_requirement
+       progress_bar=self.progress_bar
+     File "/usr/lib/python2.7/site-packages/pip-18.1-py2.7.egg/pip/_internal/download.py", line 836, in unpack_url
+       progress_bar=progress_bar
+     File "/usr/lib/python2.7/site-packages/pip-18.1-py2.7.egg/pip/_internal/download.py", line 673, in unpack_http_url
+       progress_bar)
+     File "/usr/lib/python2.7/site-packages/pip-18.1-py2.7.egg/pip/_internal/download.py", line 897, in _download_http_url
+       _download_url(resp, link, content_file, hashes, progress
+       重新执行命令即可解决
    ```
-
+   
    
 
 ## 配置客户端
