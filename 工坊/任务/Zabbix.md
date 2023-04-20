@@ -590,6 +590,27 @@
 
 7. 浏览器访问ip，用户名：Admin，密码：zabbix
 
+8. 补充
+
+   ```sh
+   # 注意！
+   1. 我们可能会遇见无法打开界面的情况，可以尝试以下几种方式，这种方式是直接指定打开文件
+     ip/index.php
+     ip/setup.php
+   2. 如果上述方法无法解决，请查看日志文件，可能会出现某个位置关于zabbix的文件的报错，大概率是权限不足
+      tailf /var/log/nginx/error.log
+   3. 将nginx的html文件中的所有文件删除，并重复此操作
+      cp -r /usr/share/zabbix/ /usr/share/nginx/html/
+      cd /usr/share/nginx/html
+      cd zabbix
+      mv * ../
+      cd ..
+      rm -rf zabbix
+    4. 建议生成一个较为干净的环境重试
+   ```
+
+   
+
 
 
 ## zabbix初始化
@@ -784,6 +805,8 @@
    条件 A 主机群组=Linux servers
    ```
 
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/youxiang4.0.png)
+
    ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/youxiang4.png)
 
 4. 操作 -----> 如下配置
@@ -821,6 +844,12 @@
    ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/youxiang8.png)
 
 8. 在被监控主机上关闭服务等待邮件即可
+
+   ```sh
+   [root@client ~]# systemctl stop zabbix-agent
+   ```
+
+   
 
 
 
