@@ -1047,7 +1047,7 @@
 
    
 
-## 创建nginx模板
+## 创建nginx模板并监控连接数
 
 1. 创建模板
 
@@ -1311,3 +1311,203 @@
 
    ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/MySQL6.png)
 
+
+
+# Nginx配置DingDing告警
+
+## 环境
+
+| 主机名 | ip              | 节点规划      |
+| ------ | --------------- | ------------- |
+| server | 192.168.223.100 | zabbix-server |
+| client | 192.168.223.7   | zabbix-client |
+
+
+
+## 配置钉钉
+
+1. 首先在手机端上打开钉钉，点击消息图标，点击右上角的加号，跟自己的同学面对面建群（理论上只要能建立群，就能做实验，这里只是我自己的方式）
+
+2. 打开机器人
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/dd1.png)
+
+3. 添加机器人
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/dd2.png)
+
+4. 选择自定义机器人服务
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/dd3.png)
+
+5. 配置机器人
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/dd4.png)
+
+6. 获取webhook值
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/dd5.png)
+
+
+
+## 安装Python
+
+1. 下载
+
+   ```sh
+   [root@server ~]# yum install -y python3
+   ```
+
+2. 查看脚本识别位置
+
+   ```sh
+   [root@server ~]# grep ^AlertScriptsPath /etc/zabbix/zabbix_server.conf
+   AlertScriptsPath=/usr/lib/zabbix/alertscripts
+   
+   [root@server ~]# cd  /usr/lib/zabbix/alertscripts
+   ```
+
+3. 编写钉钉监控脚本
+
+   ```sh
+   [root@server alertscripts]# cat dingding.py 
+   #!/usr/bin/python
+   #-*- coding: utf-8 -*-
+   import requests,json,sys,os,datetime
+   webhook="此处填写上方活动webhook"
+   user=sys.argv[1]
+   text=sys.argv[3]
+   data={
+       "msgtype": "text",
+       "text": {
+           "content": text
+       },
+       "at": {
+           "atMobiles": [
+               user
+           ],
+           "isAtAll": False
+       }
+   }
+   headers = {'Content-Type': 'application/json'}
+   x=requests.post(url=webhook,data=json.dumps(data),headers=headers)
+   if os.path.exists("/var/log/zabbix/dingding.log"):
+       f=open("/var/log/zabbix/dingding.log","a+")
+   else:
+       f=open("/var/log/zabbix/dingding.log","w+")
+   f.write("\n"+"--"*30)
+   if x.json()["errcode"] == 0:
+       f.write("\n"+str(datetime.datetime.now())+"    "+str(user)+"    "+"发送成功"+"\n"+str(text))
+       f.close()
+   else:
+       f.write("\n"+str(datetime.datetime.now()) + "    " + str(user) + "    " + "发送失败" + "\n" + str(text))
+       f.close()
+   ```
+
+4. 创建日志文件
+
+   ```sh
+   [root@server alertscripts]# mkdir -p /var/log/zabbix/
+   [root@server alertscripts]# touch /var/log/zabbix/dingding.log
+   ```
+
+5. 赋权
+
+   ```sh
+   [root@server alertscripts]# chmod 755 dingding.py
+   [root@server alertscripts]# chown zabbix:zabbix /var/log/zabbix/dingding.log
+   ```
+
+6. 本地测试
+
+   ```sh
+   [root@server alertscripts]# ./dingding.py w2521505194z test "老六告警"
+   [root@server alertscripts]# cat /var/log/zabbix/dingding.log 
+   ------------------------------------------------------------
+   2023-04-20 14:07:17.749828    w2521505194z    发送成功
+   老六告警
+   
+   
+   # 注意：
+   1. w2521505194z是钉钉号
+   2. 告警内容里面必须有告警二字（前面设置的有关键字）
+   ```
+
+   
+
+## 配置客户端
+
+1. 这里的话我引用的前面的nginx环境，这里的话主要是通过监控端口来做实验，如果做了宕机自启的实验请记得删除那个动作操作（其实只要能把nginx下载下来就可以实验）
+
+2. client的环境只需指定好服务器和主机名即可
+
+   ```sh
+   [root@client ~]# vim /etc/zabbix/zabbix_agentd.conf 
+   ```
+
+
+
+## Web界面配置监控
+
+1. 创建监控项
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/ddgj1.png)
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/ddgj2.png)
+
+2. 创建触发器
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/ddgj3.png)
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/ddgj4.png)
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/ddgj5.png)
+
+3. 创建报警媒介类型
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/ddgj6.png)
+
+4. 创建收件人
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/ddgj7.png)
+
+5. 创建动作
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/ddgj8.png)
+
+6. 创建告警操作
+
+   ```
+   告警名称(故障名称)：{EVENT.NAME}
+   
+   告警主机:{HOSTNAME1}
+   告警时间:{EVENT.DATE} {EVENT.TIME}
+   告警等级:{TRIGGER.SEVERITY}
+   告警信息: {TRIGGER.NAME}
+   告警项目:{TRIGGER.KEY1}
+   问题详情:{ITEM.NAME}:{ITEM.VALUE}
+   当前状态:{TRIGGER.STATUS}:{ITEM.VALUE1}
+   事件ID:{EVENT.ID}
+   ```
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/ddgj9.png)
+
+7. 创建恢复操作
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/ddgj10.png)
+
+8. 测试
+
+   ```sh
+   # 关闭nginx服务
+   [root@client ~]# systemctl stop nginx
+   ```
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/ddgj11.png)
+
+   ```sh
+   # 开启nginx服务
+   [root@client ~]# systemctl start nginx
+   ```
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/ddgj12.png)
