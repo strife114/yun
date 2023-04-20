@@ -1177,6 +1177,16 @@
 
 # MySQL自动化状态监控以及告警
 
+## 环境
+
+| 主机   | ip              | 节点规划 |
+| ------ | --------------- | -------- |
+| server | 192.168.223.100 | server   |
+| master | 192.168.223.3   | master   |
+| slave  | 192.168.223.4   | slave    |
+
+
+
 ## MySQL主从部署
 
 1. 详细请看https://gitee.com/fan-dongyuan/yun/blob/master/%E5%B7%A5%E5%9D%8A/%E4%BB%BB%E5%8A%A1/MySQL.md
@@ -1203,5 +1213,72 @@
       2
    ```
 
+
+
+
+## 部署MySQL客户端服务
+
+1. 下载
+
+   ```sh
+   [root@slave ~]# yum install -y zabbix-agent
+   ```
+
+2. 修改配置文件
+
+   ```sh
+   [root@slave ~]# vim /etc/zabbix/zabbix_agentd.conf
+   # 为服务端ip
+   Server=192.168.223.100
+   # 为服务端ip
+   ServerActive=192.168.223.100
+   # 本机主机名（后续web界面创建时必须一致）
+   Hostname=slave
+   # 搜索UserParameter，取消#号并修改
+   UserParameter=mysql.replication,mysql --defaults-extra-file=/etc/my.passwd  -e "show slave status\G" | grep "Running" |awk "{print $2}" | grep -c "Yes"
    
+   ```
+
+3. 启动服务
+
+   ```sh
+   [root@slave ~]# systemctl start zabbix-agent && systemctl enable zabbix-agent
+   ```
+
+4. 在服务端测试
+
+   ```sh
+   [root@server ~]# zabbix_get -s 192.168.223.4 -k mysql.replication
+   2
+   ```
+
+   
+
+
+
+
+
+## Web界面配置监控
+
+1. 将slave加入监控主机队列（配置--->主机----->点击右上角的**创建主机**）
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/MySQL1.png)
+
+2. 在slave主机上添加监控项（配置--->主机----->点击对应slave的**监控项-**--->点击右上角的**创建监控项**）
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/MySQL2.png)
+
+3. 创建salve的触发器（配置--->主机----->点击对应slave的**触发器-**--->点击右上角的**创建触发器**）
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/MySQL3.png)
+
+4. 创建动作（配置--->动作----->点击右上角的**创建动作**）
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/MySQL4.png)
+
+5. 配置动作的操作
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/MySQL5.png)
+
+   ![](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/zabbix/MySQL6.png)
 
