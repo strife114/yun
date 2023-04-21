@@ -1221,3 +1221,37 @@ discovery.zen.ping.unicast.hosts: ["elk-1", "elk-2","elk-3"]
 3. master节点：普通服务器即可(CPU 内存 消耗⼀般) 
 4. data节点：主要消耗磁盘，内存 
 5. client节点：普通服务器即可(如果要进⾏分组聚合操作的话，建议这个节点内存也分配多⼀点
+
+
+
+
+
+
+
+# ELK查询语法
+
+1、要搜索一个确切的字符串，即**精确搜索**，需要使用双引号引起来：path:”/app/logs/nginx/access.log”
+
+2、如果**不带引号**，将会匹配每个单词：uid token
+
+3、**模糊搜索**：path:”/app/~
+
+4、* 匹配0到多个字符：*oken
+
+5、? 匹配**单个字符** : tok?n
+
+6、+：搜索结果中必须包含此项 -：不能含有此项 什么都没有则可有可无： +token -appVersion appCode
+
+7、运算符**AND/OR/NOT**必须大写：token AND uid ；token OR uid；NOT uid
+
+8、允许一个字段值在某个区间（[] 包含该值，{}不包含）：@version:[1 TO 3]
+
+9、组合查询：(uid OR token) AND version
+
+10、转义特殊字符 + – && || ! ( ) { } [ ] ^ ” ~ * ? : \ 转义特殊字符只需在字符前加上符号\
+
+11、分组(firstname:H* OR age:20) AND state:KS 先查询名字H开头年龄或者是20的结果，然后再与国家是KS的结合
+
+12、firstname:(+H* -He*) 搜索firstname字段里H开头的结果，并且排除firstname里He开头的结果
+
+13.查询一，xxx:[1 TO *]
