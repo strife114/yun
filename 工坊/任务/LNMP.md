@@ -1340,7 +1340,7 @@ done
 1. 进入mysql服务器内创建一个名为wordpress的数据库并授权
 
    ```
-   mysql -uroot -p000000
+   mysql
    
    # 创建数据库
    create database wordpress;
