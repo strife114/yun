@@ -1340,6 +1340,7 @@ done
 1. 进入mysql服务器内创建一个名为wordpress的数据库并授权
 
    ```
+   # 进入数据库
    mysql
    
    # 创建数据库
@@ -1356,7 +1357,7 @@ done
 2. 删除nginx的html下的所有文件
 
    ```
-   rm -rf /usr/local/nginx/html/*
+   rm -rf /usr/share/nginx/html/*
    ```
 
 3. 上传解压wordpress安装包
