@@ -39,7 +39,6 @@ Loki分两部分，Loki是日志引擎部分，Promtail是收集日志端，然�
 
 # 注意
 1. 出现缺少fontconfig和urw-fonts依赖包
-
 # 解决方法
 1. yum install -y fontconfig urw-fonts
 ```
