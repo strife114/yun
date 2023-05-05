@@ -34,6 +34,14 @@ Loki分两部分，Loki是日志引擎部分，Promtail是收集日志端，然�
 [root@master ~]# unzip loki-linux-amd64.zip
 [root@master ~]# unzip promtail-linux-amd64.zip
 [root@master ~]# rpm -ivh grafana-6.7.4-1.x86_64.rpm
+
+
+
+# 注意
+1. 出现缺少fontconfig和urw-fonts依赖包
+
+# 解决方法
+1. yum install -y fontconfig urw-fonts
 ```
 
 
