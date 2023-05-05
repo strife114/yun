@@ -591,5 +591,163 @@
 
    
 
-### 
 
+
+# Redis哨兵
+
+## 简介
+
+1. 哨兵模式是Redis的高可用方式，哨兵节点是特殊的redis服务，不提供读写服务，主要用来监控redis实例节点
+2. 在主从模式下，master节点负责写请求，然后异地同步给slave节点，从节点负责处理读请求。如果master宕机了，需要手动将从节点晋升为主节点，并且还要切换客户端的连接数据源。这就无法达到高可用，而通过哨兵模式就可以解决这一问题。
+
+## 作用
+
+1. 监控（哨兵会不断就见擦汗你都master和slave是否运作正常）
+2. 告警（当被监控的某个redis节点出现问题时，哨兵可以通过API向管理员或者其他应用程序发送通知）
+3. 故障自适应迁移（当一个master不能工作室，哨兵会将失效的master的其中一个slave升级为新的master，当客户端试图连接失效的master时，集群也会向客户端返回新的master地址，使得集群可以使用新的master代替失效的master）
+
+
+
+## redis服务安装（3）
+
+1. 下载并安装
+
+   ```sh
+   # cd /usr/local/src/
+   # wget http://download.redis.io/releases/redis-4.0.1.tar.gz
+   # tar -zxvf  redis-4.0.1.tar.gz
+   # cd redis-4.0.1
+   # yum install -y gcc
+   # make MALLOC=libc
+   # make && make install
+   # cp redis.conf /etc/redis.conf
+   ```
+
+2. 修改配置文件
+
+   ```sh
+   # vim /etc/redis.conf
+   # 找到以下参数
+   
+   daemonize yes
+   # 指定日志文件
+   logfile "/var/log/redis.log"
+   dir /data/redis_data/
+   # 持久化
+   appendonly yes
+   ```
+
+3. 调整redis相关事务
+
+   ```sh
+   # mkdir -p /data/redis_data
+   # mkdir /var/log/redis.log
+   # sysctl vm.overcommit_memory=1
+   # echo never > /sys/kernel/mm/transparent_hugepage/enabled
+   # redis-server /etc/redis.conf
+   ```
+
+
+
+## 搭建一主两从
+
+1. 修改主配置文件
+
+   ```sh
+   # vim /etc/redis.conf
+   # 注释这个参数
+   bind 127.0.0.1
+   # 修改这个参数
+   protected-mode no
+   ```
+
+2. 配置两台从配置文件
+
+   ```sh
+   # vim /etc/redis.conf
+   # 注释
+   bind 127.0.0.1
+   # 修改
+   protected-mode no
+   
+   # 修改为主机ip
+   slaveof 192.168.23.4 6379
+   ```
+
+3. 启动所有机器服务
+
+   ```sh
+   # redis-server /etc/redis.conf
+   ```
+
+4. 查看是否启动
+
+   ```sh
+   # ps -ef |grep redis
+   root       8219      1  0 09:33 ?        00:00:00 redis-server 0.0.0.0:6379
+   root       11244   2538  0 09:33 pts/0    00:00:00 grep --color=auto redis
+   ```
+
+5. 测试
+
+   ```sh
+   # 在master查看主从关系
+   127.0.0.1:6379> info replication
+   # 看到这个参数
+   role:master
+   connected_slaves:2
+   
+   
+   # 在salve查看主从关系
+   127.0.0.1:6379> info replication
+   # 看到这个参数
+   role:slave
+   ```
+
+6. 测试哨兵服务
+
+   ```sh
+   #可登录任何一台进行查看
+   # redis-cli -h 192.168.223.4 -p 26379
+   192.168.223.4:26379> info sentinel
+   # Sentinel
+   sentinel_masters:1
+   sentinel_tilt:0
+   sentinel_running_scripts:0
+   sentinel_scripts_queue_length:0
+   sentinel_simulate_failure_flags:0
+   master0:name=mymaster,status=ok,address=192.168.223.3:6379,slaves=2,sentinels=3
+   ```
+
+   ```sh
+   # 关闭主节点服务，测试主节点移动
+   # redis-cli
+   127.0.0.1:6379> shutdown
+   not connected>
+   # ps -ef | grep redis
+   root       7219      1  0 08:38 ?        00:00:00 redis-server *:6379
+   root       3521   2448  0 08:46 pts/0    00:00:00 grep --color=auto redis
+   # kill -9 7219
+   # ps -ef | grep redis
+   root       3521   2448  0 08:46 pts/0    00:00:00 grep --color=auto redis
+   
+   
+   
+   # 在从节点上查看到
+   # redis-cli
+   127.0.0.1:6379> info replication
+   # Replication
+   role:master
+   connected_slaves:1
+   slave0:ip=192.168.223.4,port=6379,state=online,offset=151006,lag=0
+   master_replid:cd6a813ba949330ae57ba7ff97d9e037dc5eab32
+   master_replid2:69cfe36d88780aa382bc584588d75eb498ad37f1
+   master_repl_offset:151006
+   second_repl_offset:137995
+   repl_backlog_active:1
+   repl_backlog_size:1048576
+   repl_backlog_first_byte_offset:15
+   repl_backlog_histlen:150992
+   ```
+
+   
