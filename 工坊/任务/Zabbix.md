@@ -421,7 +421,7 @@
        # 修改站点目录
    	root           /usr/share/nginx/html;
    	fastcgi_pass   127.0.0.1:9000;
-   	fastcgi_index  index.php
+   	fastcgi_index  index.php;
    	# 将fastcgi_param中的/scripts改为$document_root，root是配置php程序纺织的根目录
    	fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;	
    	include        fastcgi_params;
