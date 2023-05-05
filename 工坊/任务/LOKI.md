@@ -123,7 +123,6 @@ server:
 positions:
   filename: /tmp/positions.yaml
 
-# Loki服务器地址
 clients:
   - url: http://127.0.0.1:3100/loki/api/v1/push
 
