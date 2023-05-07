@@ -106,4 +106,75 @@
 
    
 
-   
+
+
+
+## MFA认证
+
+1. 点击右上角设置------》安全设置
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jumpserver/jumpmfa0.png)
+
+2. 退出账号并重新登录（admin账号即可）
+
+3. MFA注册
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jumpserver/jumpmfa1.png)
+
+   用手机扫码二维码下载**身份验证器**
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jumpserver/jumpmfa2.png)
+
+   点击右下角的+号，用**扫描二维码**的方式去注册身份验证器，
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jumpserver/jumpmfa3.png)
+
+   然后将二维码填入上方的二维码
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jumpserver/jumpmfa4.png)
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jumpserver/jumpmfa7.png)
+
+4. 登录账号测试
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jumpserver/jumpmfa5.png)
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jumpserver/jummfa6.png)
+
+
+
+## 邮件告警
+
+1. 设置邮箱
+
+   设置-----》邮件设置------》邮件服务器
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jumpserver/jumpyouxiang1.png)
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jumpserver/jumpyouxiang2.png)
+
+2. 测试
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jumpserver/jumpyouxiang3.png)
+
+
+
+
+
+## JumpServer审计台
+
+### 审计员
+
+![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jumpserver/jumpshenji1.png)
+
+### 会话审计
+
+![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jumpserver/jumpshenji2.png)
+
+![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jumpserver/jumpshenji3.png)
+
+![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jumpserver/jumpshenji4.png)
+
+### 日志审计
+
+![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jumpserver/jumpshenji5.png)
