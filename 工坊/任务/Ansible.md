@@ -579,6 +579,57 @@ ansible-playbook <被执行yml文件名> ...[选项]
 
 
 
+## Template模板
+
+### 简介
+
+1. 模板是一个文本文件，可以作为生成文件的模板，并且模板文件中还可以嵌套jinja2语法
+
+### jinja2语法
+
+jinja2是一个现代的，设计者友好的，仿照django模板的python模板语言，速度快，被广泛使用，并且提供了可选的沙箱模板执行环境以保证安全
+
+#### 特性
+
+```sh
+1. 沙箱中执行
+2. 强大的HTML自动转义系统保护系统免受XSS
+3. 模板继承
+4. 及时编译最优的python代码
+5. 可选提前编译模板的时间
+6. 易于调试，异常的行数直接指向模板中的对应行·
+7. 可配置的语法
+```
+
+#### 官方地址
+
+```sh
+https: /jinja.palletsprojects.com/en/3.0.x/
+
+# 中文文档
+https: /www.w3cschool.cn/yshfid/
+```
+
+#### 数据类型和操作
+
+```sh
+字面量：如字符串，使用单引号或双引号；数字，整数，浮点数
+列表：[item1, item2, ...]
+元组：(item1, item2, ...)
+字典：{key1:value1, key2:value2, ...}
+布尔型：true/false
+算术运算：+、-、*、/、//、%、**
+比较操作符：==、!=、>、<、>=、<=
+逻辑运算：and、or、not
+流表达式：for、if、when
+```
+
+
+
+
+
+
+
 
 
 # Ansible基础模块测试
@@ -1458,12 +1509,406 @@ apache:x:48:48:Apache:/usr/share/httpd:/sbin/nologin
     ignore_errors: yes
   - name: continue
     command: wall continue
+    
+    
+    
+# 执行
+[root@ansible1 ~]# ansible-playbook cuowu.yml
+
+PLAY [192.168.6.100] ************************************************************************************************************************************************************************
+
+TASK [Gathering Facts] **********************************************************************************************************************************************************************
+ok: [192.168.6.100]
+
+TASK [error] ********************************************************************************************************************************************************************************
+fatal: [192.168.6.100]: FAILED! => {"changed": true, "cmd": ["/bin/false"], "delta": "0:00:00.003943", "end": "2023-05-16 08:32:32.588081", "msg": "non-zero return code", "rc": 1, "start": "2023-05-16 08:32:32.584138", "stderr": "", "stderr_lines": [], "stdout": "", "stdout_lines": []}
+...ignoring
+
+TASK [continue] *****************************************************************************************************************************************************************************
+changed: [192.168.6.100]
+
+PLAY RECAP **********************************************************************************************************************************************************************************
+192.168.6.100              : ok=3    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=1   
 ```
 
 ## 变量
 
-```
+```sh
 # 变量名：仅能由字母，数字和下划线组成，且只能以字母开头
+# 变量定义：variable=value variable:value
+# 变量调用
+  通过{{ variable_name }} 调用变量，切变量名前后加空格
+# 变量来源
+  1. ansible的setup facts远程主机的所有变量都可以直接调用
+  2. 通过命令行指定变量，优先级最高
+     ansible-playbook -e varname=value test.yml
+  3. 在playbook文件中定义
+     vars:
+       var1: value1
+       var2: value2
+  4. 在独立的yaml文件中定义
+     - hosts: all
+       vars_files:
+         - vars_yml
+  5. 在主机清单中定义
+     主机（普通）变量：主机组中主机单独定义，优先级高于公共变量
+     组（公共）变量：针对主机组中所有主机定义统一变量
+  6. 在项目中针对主机和主机组定义
+     在项目目录中创建host_vars和group_vars目录
+  7. 在role中定义
+  
+  
+# 变量优先级
+-e 选项定义变量 -> playbook中vars_files -> playbook中vars变量定义 --> host_vars/主机名文件 -> 主机清单中主机变量 -> group_vars/all文件 --> 主机清单组变量
+
+```
+
+### 命令行定义变量
+
+```sh
+# 编写yml文件
+[root@ansible1 ~]# cat var2.yml 
+---
+- hosts: 192.168.6.100
+  remote_user: root
+  tasks:
+  - name: install package
+    yum: name={{ package }} state=present
+
+
+# 执行
+[root@ansible1 ~]# ansible-playbook -e package=httpd var2.yml
+
+PLAY [192.168.6.100] ****************************************************************************************************************************************
+
+TASK [Gathering Facts] **************************************************************************************************************************************
+ok: [192.168.6.100]
+
+TASK [install package] **************************************************************************************************************************************
+changed: [192.168.6.100]
+
+PLAY RECAP **************************************************************************************************************************************************
+192.168.6.100              : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+
+```
+
+### playbook文件内定义变量
+
+```sh
+# 编写yml文件
+[root@ansible1 ~]# cat var1.yml 
+---
+- hosts: 192.168.6.100
+  remote_user: root
+  vars:
+    username: fdy
+    groupname: fdy
+
+  tasks:
+  - name: create group
+    group: name={{ groupname }} state=present
+  - name: create user
+    user: name={{ username }} group={{ groupname }} state=present
+
+
+
+# 执行
+[root@ansible1 ~]# ansible-playbook var1.yml
+
+PLAY [192.168.6.100] ****************************************************************************************************************************************
+
+TASK [Gathering Facts] **************************************************************************************************************************************
+ok: [192.168.6.100]
+
+TASK [create group] *****************************************************************************************************************************************
+changed: [192.168.6.100]
+
+TASK [create user] ******************************************************************************************************************************************
+changed: [192.168.6.100]
+
+PLAY RECAP **************************************************************************************************************************************************
+192.168.6.100              : ok=3    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+
+
+
+# 测试
+[root@ansible2 home]# ll
+total 0
+drwx------ 2 admin admin 62 May 10 17:02 admin
+drwx------ 2 fdy   fdy   62 May 16 09:06 fdy
+drwx------ 2 mysql mysql 62 May 10 17:33 mysql
+drwx------ 2 test  test  62 May 10 08:40 test
+
+
+
+
+
+# 变量相互调用
+[root@ansible1 ~]# cat var3.yml 
+---
+- hosts: 192.168.6.100
+  remote_user: root
+  vars:
+    subfix: "txt"
+    file: "{{ ansible_nodename }}.{{ subfix }}"
+  tasks:
+  - name: test var
+    file: path="/data/{{ file }}" state=touch
+
+```
+
+### 在独立的yaml文件中定义
+
+```sh
+# 创建yml文件
+[root@ansible1 ~]# cat vars1.yml
+---
+- hosts: 192.168.6.100
+  remote_user: root
+  vars_files:
+    - vars.yml
+  tasks:
+  - name: install package
+    yum: name={{ package_name }} state=present
+    tags: install
+  - name: start service
+    service: name={{ service_name }} state=started enabled=yes
+
+# 创建独立的变量文件
+[root@ansible1 ~]# cat vars.yml
+---
+package_name: mariadb-server
+service_name: mariadb
+
+
+# 执行
+[root@ansible1 ~]# ansible-playbook vars1.yml
+
+PLAY [192.168.6.100] ****************************************************************************************************************************************
+
+TASK [Gathering Facts] **************************************************************************************************************************************
+ok: [192.168.6.100]
+
+TASK [install package] **************************************************************************************************************************************
+changed: [192.168.6.100]
+
+TASK [start service] ****************************************************************************************************************************************
+changed: [192.168.6.100]
+
+PLAY RECAP **************************************************************************************************************************************************
+192.168.6.100              : ok=3    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+
+```
+
+### 针对主机和主机组的变量
+
+```sh
+# 添加主机清单文件
+[root@ansible1 ~]# vim /etc/ansible/hosts 
+[testhost]
+192.168.6.100
+[websrvs]
+ansible1 http_port=80 maxRequestsPerChild=808
+ansible2 http_prot=8080 maxRequestsPerChild=900
+
+# 创建yml执行文件
+[root@ansible1 ~]# cat web1.yml 
+---
+- hosts: websrvs
+  remote_user: root
+  tasks:
+  - name: Install Apache
+    yum:
+      name: httpd
+      state: present
+  - name: Start apache service
+    service:
+      name: httpd
+      state: started
+      enabled: yes
+      
+      
+# 主机组变量
+[root@ansible1 ~]# vim /etc/ansible/hosts
+[testhost]
+192.168.6.100
+[websrvs:vars]
+http_port=80
+ntp_server=ntp.aliyun.com
+nfs_server=nfs.aliyun.com
+
+
+[root@ansible1 ~]# cat web2.yml
+---
+- hosts: websrvs
+  remote_user: root
+  tasks:
+    - name: Configure NTP service
+      template:
+        src: /path/to/ntp.conf.j2
+        dest: /etc/ntp.conf
+      vars:
+        ntp_server: "{{ ntp_server }}"
+```
+
+### register注册变量
+
+#### msg相关参数
+
+```sh
+# 输出register注册的name变量全部信息
+# msg: "{{ name.cmd }}" # 显示命令
+# msg: "{{ name.rc }}" # 显示命令成功与否
+# msg: "{{ name.stdout }}" # 显示命令的输出结果为字符串形式
+# msg: "{{ name.stdout_lines }}" # 显示命令的输出结果为列表形式
+# msg: "{{ name.stdout_lines[0] }}" # 显示命令的输出结果的列表中第一个元素
+# msg: "{{ name[stdout_lines] }}" # 显示命令的输出结果为列表形式
+```
+
+#### 临时捕获变量
+
+```sh
+# 创建yml文件
+[root@ansible1 ~]# cat register.yml 
+---
+- hosts: 192.168.6.100
+  tasks:
+  - name: get variable
+    shell: hostname
+    register: name  # 捕获上方的结果信息并填入name变量
+  - name: print variable
+    debug:
+      msg: "{{ name }}"  # 输出register捕获的name变量的全部信息
+
+# 执行
+[root@ansible1 ~]# ansible-playbook register.yml 
+
+PLAY [192.168.6.100] ****************************************************************************************************************************************
+
+TASK [Gathering Facts] **************************************************************************************************************************************
+ok: [192.168.6.100]
+
+TASK [get variable] *****************************************************************************************************************************************
+changed: [192.168.6.100]
+
+TASK [print variable] ***************************************************************************************************************************************
+ok: [192.168.6.100] => {
+    "msg": {
+        "changed": true, 
+        "cmd": "hostname", 
+        "delta": "0:00:00.003020", 
+        "end": "2023-05-16 10:20:25.096642", 
+        "failed": false, 
+        "rc": 0, 
+        "start": "2023-05-16 10:20:25.093622", 
+        "stderr": "", 
+        "stderr_lines": [], 
+        "stdout": "ansible2", 
+        "stdout_lines": [
+            "ansible2"
+        ]
+    }
+}
+
+PLAY RECAP **************************************************************************************************************************************************
+192.168.6.100              : ok=3    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+```
+
+#### 使用注册变量创建文件
+
+```yaml
+# 创建yml文件
+[root@ansible1 ~]# cat register1.yml 
+- hosts: 192.168.6.100
+  tasks:
+  - name: get variable
+    shell: hostname
+    register: name
+  - name: create file
+    file: dest=/tmp/{{ name.stdout }}.log state=touch
+
+
+# 执行
+[root@ansible1 ~]# ansible-playbook register1.yml 
+
+PLAY [192.168.6.100] ****************************************************************************************************************************************
+
+TASK [Gathering Facts] **************************************************************************************************************************************
+ok: [192.168.6.100]
+
+TASK [get variable] *****************************************************************************************************************************************
+changed: [192.168.6.100]
+
+TASK [create file] ******************************************************************************************************************************************
+changed: [192.168.6.100]
+
+PLAY RECAP **************************************************************************************************************************************************
+192.168.6.100              : ok=3    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+```
+
+#### 启动服务并检查
+
+```yaml
+# 创建yml文件
+[root@ansible1 ~]# cat register2.yml 
+---
+- hosts: 192.168.6.100
+  vars:
+    package_name: httpd
+    service_name: httpd
+  tasks:
+  - name: install {{ package_name }}
+    yum: name={{ package_name }}
+  - name: start {{ service_name }}
+    service: name={{ service_name }} state=started enabled=yes
+  - name: check
+    shell: ps aux | grep {{ service_name }} | grep -v grep
+    register: check_service
+  - name: debug
+    debug:
+      msg: "{{ check_service.stdout_lines }}"
+
+
+
+
+
+
+
+# 执行
+[root@ansible1 ~]# ansible-playbook register2.yml 
+
+PLAY [192.168.6.100] ****************************************************************************************************************************************
+
+TASK [Gathering Facts] **************************************************************************************************************************************
+ok: [192.168.6.100]
+
+TASK [install httpd] ****************************************************************************************************************************************
+changed: [192.168.6.100]
+
+TASK [start httpd] ******************************************************************************************************************************************
+changed: [192.168.6.100]
+
+TASK [check] ************************************************************************************************************************************************
+changed: [192.168.6.100]
+
+TASK [debug] ************************************************************************************************************************************************
+ok: [192.168.6.100] => {
+    "msg": [
+        "root       6280  0.0  0.5 224084  5040 ?        Ss   12:57   0:00 /usr/sbin/httpd -DFOREGROUND", 
+        "apache     6281  0.0  0.2 224084  2932 ?        S    12:57   0:00 /usr/sbin/httpd -DFOREGROUND", 
+        "apache     6282  0.0  0.2 224084  2932 ?        S    12:57   0:00 /usr/sbin/httpd -DFOREGROUND", 
+        "apache     6283  0.0  0.2 224084  2932 ?        S    12:57   0:00 /usr/sbin/httpd -DFOREGROUND", 
+        "apache     6285  0.0  0.2 224084  2932 ?        S    12:57   0:00 /usr/sbin/httpd -DFOREGROUND", 
+        "apache     6286  0.0  0.2 224084  2932 ?        S    12:57   0:00 /usr/sbin/httpd -DFOREGROUND"
+    ]
+}
+
+PLAY RECAP **************************************************************************************************************************************************
+192.168.6.100              : ok=5    changed=3    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
 
 ```
 
