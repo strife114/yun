@@ -424,23 +424,164 @@ ansible "~(web|app).*" -m ping
 
 
 
-### Playbook核心组件1
+### Playbook核心组件
 
 1. Hosts：执行的远程主机列表
 2. Tasks：任务及，由多个task远程组成的列表，每个task都是一个字典，一个完整的代码块功能需最少元素包括name和task，一个name只能有一个task
 3. Variables：内置变量或自定义变量在playbook中调用
 4. Templates：模板，可替换模板文件中的变量并实现一些简单逻辑文件
-5. Handlers和notify或tasks结合使用，由特定条件触发的操作，满足条件放可执行
+5. Handlers（hosts下）和notify（tasks下）是和tasks结合使用，由特定条件触发的操作，满足条件放可执行
 6. Tags：标签，指定某条任务执行，用于选择playbook中的部分代码，ansible 具有幂等性，因此会自动跳过没有变化的部分，即便如此，有些代码为测试器 确实没有发生变化的时候，依然会非常的长，此时，如果确信其没有变化，就 可以通过tags跳过这些代码片段
+
+
 
 #### Hosts组件
 
 1. playbook中的每个play的目的都是为了让特定主机以某个指定用户身份执行任务
-2. hosts主要用于
+2. hosts主要用于指定要执行的任务主机，需事先定义在主机清单中
+3. 示例
+
+   ```sh
+   - hosts: websrvs
+   - hosts: 192.168.223.200
+   - hosts: websrvs:appsrvs  # 两个组的并集
+   - hosts: websrvs:&appsrvs # 两个组的交集
+   - hosts: websrvs:!appsrvs # 在websrvs组中，但不在appsrvs中
+   ```
 
 
 
-## Ansible基础模块测试
+#### remote_user组件
+
+1. 可用于host和task中，也可以通过指定其通过sudo方式在远程主机上执行任务，其可用于play全局或某个任务中
+
+2. 可以在sudo时使用sudo_user指定sudo时切换的用户，默认为root
+
+3. 示例
+
+   ```yaml
+   ---
+   - hosts: forhost
+     remote_user: root
+     tasks:
+     - name: test connection
+       ping:
+       remote_user: root
+       become: yes
+       become_user: root
+   
+   
+   
+   
+   
+   # 注意
+   1. 2.9版本sudo已经替换为become，之前的版本都是sudo：、sudo_user：
+   ```
+
+
+
+
+
+#### task列表和action组件
+
+1. play主体部分是task list，task list有一个或多个task，每个task按次序逐个在hosts 中指定的所有主机上执行，即在所有主机上执行完一个task后，再执行下一个 task
+
+2. task的目的是使用指定的参数执行模块，再模块参数中可以使用变量。模块执行 为幂等的，意味着多次执行是安全的，其结果一致
+
+3. 每个task都应该有其name，用于playbook执行结果输出，建议其内容能够清晰描 述任务执行步骤，如果没有提供name，则action的结果将用于输出
+
+4. task两种格式
+
+   ```sh
+   action: module arguments    # action: shell wall hello
+   module: arguments           # shell: wall hello
+   ```
+
+5. 示例1：
+
+   ```yaml
+   ---
+   - hosts: websrvs
+     remote_user: root
+     gather_facts: no # 不收集系统信息，提高执行效率
+     tasks:
+     - name: test network connection
+       ping:
+     - name: excute command
+       command: wall "hello world!"
+   ```
+
+6. 示例2：
+
+   ```yaml
+   ---
+   - hosts: websrvs
+     remote_user: root
+     gather_facts: no
+     tasks:
+     - name: install httpd
+       yum: name=httpd
+     - name: start httpd
+       service: name=httpd state=started enabled=yes
+   ```
+
+   
+
+#### tags和handlers组件
+
+1. 某任务状态在运行后为changed时，可通过notify通知给相应的handlers任务
+
+2. 可以通过tags给task打标签，在ansible-playbook命令上**使用-t指定调用**
+
+3. 示例：
+
+   ```yaml
+   - hosts: httpd
+     remote_user: root
+     gather_facts: no
+     tasks:
+     - name: install httpd
+       yum: name=httpd
+     - name: copy config file to httpd server
+       copy: src=/etc/httpd/conf/httpd.conf
+       dest=/etc/httpd/conf/httpd.conf
+       notify: restart service
+     tags:
+       - change config
+     - name: start httpd
+       service: name=httpd state=started enabled=yes
+       tags:
+         - start service
+     handlers:
+     - name: restart service
+       service: name=httpd state=restarted
+   ```
+
+
+
+
+
+### Playbook命令
+
+```sh
+ansible-playbook <被执行yml文件名> ...[选项]
+常见选项：
+--syntax-check                    语法检查，可缩写为--syntax，相当于bash -n
+-C, --check                       模拟执行，只检测可能会发生的变化，但不真正执行操作，dry run
+--list-hosts                      列出运行任务的主机
+--list-tags                       列出tag
+--list-tasks                      列出task
+--limit                           主机列表 只针对主机列表中的特定主机执行
+-i INVENTORY                      指定主机清单文件，通常一个项对应一个主机清单文件
+--start-at-task START_AT_TASK     从指定的task开始执行任务，而不是从开头开始，START_AT_TASK 为任务名称
+-v, -vv, -vvv                     显示具体执行过程，详细程度根据-v数量变化
+```
+
+
+
+
+
+# Ansible基础模块测试
 
 ### Command模块
 
@@ -842,6 +983,27 @@ shutdown now
 ### File模块
 
 ```sh
+# 该模块主要用于设置文件的属性，比如创建文件、创建链接文件、删除文件等。
+# 下面是一些常见的命令：
+force　　  # 需要在两种情况下强制创建软链接，一种是源文件不存在，但之后会建立的情况下；另一种是目标软链接已存在，需要先取消之前的软链，然后创建新的软链，有两个选项：yes|no
+group　　  # 定义文件/目录的属组。后面可以加上mode：定义文件/目录的权限
+owner　　  # 定义文件/目录的属主。后面必须跟上path：定义文件/目录的路径
+recurse　　# 递归设置文件的属性，只对目录有效，后面跟上src：被链接的源文件路径，只应用于state=link的情况
+dest　　   # 被链接到的路径，只应用于state=link的情况
+state　  　# 状态，有以下选项：
+  directory：如果目录不存在，就创建目录
+  file：即使文件不存在，也不会被创建
+  link：创建软链接
+  hard：创建硬链接
+  touch：如果文件不存在，则会创建一个新的文件，如果文件或目录已存在，则更新其最后修改时间
+  absent：删除目录、文件或者取消链接文件
+
+
+
+
+
+
+
 # 提前创建/data目录，file模块不支持自动创建目录
 # all参数代表在/etc/ansible/hosts下的所有主机组
 
@@ -915,302 +1077,393 @@ ansible all -m setup -a "filter=ansible_env"
 
 
 
-## Ansible playbook测试
+# Ansible playbook测试
 
-1. **创建文件**
+## **创建文件**
 
-   ```yaml
-   # 创建yml文件
-   [root@ansible1 ~]# cat /etc/ansible/test.yml 
-   ---
-   - hosts: 192.168.6.100
-     remote_user: root
-     tasks:
-     - name: test_playbook
-       shell: touch /tmp/playbook_test.txt
-       
-       
-       
-       
-   # 参数详解
-   1. host参数指定了对哪些主机进程操作，如果多态主机可用逗号作为分隔，也可以使用主机组，主机组在/etc/ansible/hosts里定义
-   2. remote_user擦买手机指定使用什么用户登录远程主机操作
-   3. tasks参数指定路由一个任务
-   4. tasks参数下的name是对任务的描述，在执行过程中会打印出来
-   5. tasks参数下的shell是一个模块，指定使用shell模块去执行touch命令
-   
-   
-   
-   
-   
-   
-   
-   # 执行
-   [root@ansible1 ~]# ansible-playbook /etc/ansible/test.yml
-   
-   PLAY [192.168.6.100] ***********************************************************
-   
-   TASK [Gathering Facts] *********************************************************
-   ok: [192.168.6.100]
-   
-   TASK [test_playbook] ***********************************************************
-   [WARNING]: Consider using the file module with state=touch rather than running
-   'touch'.  If you need to use command because file is insufficient you can add
-   'warn: false' to this command task or set 'command_warnings=False' in
-   ansible.cfg to get rid of this message.
-   changed: [192.168.6.100]
-   
-   PLAY RECAP *********************************************************************
-   192.168.6.100              : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0 
-   
-   # 测试
-   [root@ansible2 tmp]# ll
-   total 16
-   -rw-r--r--  1 root root 936 May  9 10:55 123
-   -rw-r--r--  1 root root  28 May  9 14:08 ansible_test.txt
-   -rwx------. 1 root root 836 May  8 12:00 ks-script-Oqh8jU
-   -rw-r--r--  1 root root   0 May 10 08:28 playbook_test.txt
-   drwx------  3 root root  17 May 10 08:13 systemd-private-dabeb86043344ce39378b87cfbb16d4a-chronyd.service-zprDZH
-   drwx------  3 root root  17 May 10 08:13 systemd-private-dabeb86043344ce39378b87cfbb16d4a-httpd.service-sJwku6
-   -rwxr-xr-x  1 root root  48 May  9 09:24 test.sh
-   drwx------  2 root root   6 May  8 12:10 vmware-root_639-3988031840
-   drwx------  2 root root   6 May  9 08:59 vmware-root_647-3988163046
-   drwx------  2 root root   6 May  8 12:11 vmware-root_648-2688619569
-   drwx------  2 root root   6 May  8 12:09 vmware-root_652-2697074100
-   drwx------  2 root root   6 May 10 08:13 vmware-root_657-4022112241
-   drwx------. 2 root root   6 May  8 12:05 vmware-root_660-2697467306
-   drwx------. 2 root root   6 May  8 12:01 vmware-root_674-2731152261
-   -rw-------. 1 root root   0 May  8 11:56 yum.log
-   ```
-
-2. **创建用户**
-
-   ```yml
-   # 创建yml文件
-   [root@ansible1 ~]# cat  create_user.yml 
-   ---
-   - name: create_user
-     hosts: 192.168.6.100
-     user: root
-     gather_facts: false
-     vars:
-       - user: "test"
-     tasks:
-       - name: create user
-         user: name="{{ user }}"
-   
-   
-   
-   
-   参数详解：
-   1. name参数是对plaaybook实现的功能做一个概述，可省略
-   2. gather_facts参数指定了在以下任务部分执行前，是否先执行setup模块来获取主机相关信息，在这后面的task会使用到setup获取的信息时使用到
-   3. vars参数指定了变量，这里指一个user变量，变量值为test
-   4. tasks参数下的name说明此任务名为create user
-   5. tasks参数下的user指定创建一个名为user变量(test)的用户
-   
-   
-   # 执行
-   [root@ansible1 ~]# ansible-playbook create_user.yml 
-   
-   PLAY [create_user] *************************************************************
-   
-   TASK [create user] *************************************************************
-   changed: [192.168.6.100]
-   
-   PLAY RECAP *********************************************************************
-   192.168.6.100              : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-   
-   # 测试
-   [root@ansible2 tmp]# cat /etc/passwd
-   root:x:0:0:root:/root:/bin/bash
-   bin:x:1:1:bin:/bin:/sbin/nologin
-   daemon:x:2:2:daemon:/sbin:/sbin/nologin
-   adm:x:3:4:adm:/var/adm:/sbin/nologin
-   lp:x:4:7:lp:/var/spool/lpd:/sbin/nologin
-   sync:x:5:0:sync:/sbin:/bin/sync
-   shutdown:x:6:0:shutdown:/sbin:/sbin/shutdown
-   halt:x:7:0:halt:/sbin:/sbin/halt
-   mail:x:8:12:mail:/var/spool/mail:/sbin/nologin
-   operator:x:11:0:operator:/root:/sbin/nologin
-   games:x:12:100:games:/usr/games:/sbin/nologin
-   ftp:x:14:50:FTP User:/var/ftp:/sbin/nologin
-   nobody:x:99:99:Nobody:/:/sbin/nologin
-   systemd-network:x:192:192:systemd Network Management:/:/sbin/nologin
-   dbus:x:81:81:System message bus:/:/sbin/nologin
-   polkitd:x:999:998:User for polkitd:/:/sbin/nologin
-   sshd:x:74:74:Privilege-separated SSH:/var/empty/sshd:/sbin/nologin
-   postfix:x:89:89::/var/spool/postfix:/sbin/nologin
-   chrony:x:998:996::/var/lib/chrony:/sbin/nologin
-   apache:x:48:48:Apache:/usr/share/httpd:/sbin/nologin
-   test:x:1000:1000::/home/test:/bin/bash
-   ```
-
-3. 循环
-
-   ```sh
-   # 先在testhost主机组中的所有主机创建/tmp/1.txt /tmp/2.txt /tmp/3.txt三个文件
-   # 创建yml文件
-   [root@ansible1 ~]# cat while.yml 
-   ---
-   - hosts: testhost
-     user: root
-     tasks:
-     - name: change mode for files
-       file: path=/tmp/{{ item }} mode=600
-       with_items:
-         - 1.txt
-         - 2.txt
-         - 3.txt
-   
-   
-   
-   
-   # 执行
-   [root@ansible1 ~]# ansible-playbook while.yml
-   
-   PLAY [testhost] *********************************************************************************************************************************************
-   
-   TASK [Gathering Facts] **************************************************************************************************************************************
-   ok: [192.168.6.11]
-   ok: [192.168.6.100]
-   
-   TASK [change mode for files] ********************************************************************************************************************************
-   changed: [192.168.6.100] => (item=1.txt)
-   ok: [192.168.6.11] => (item=1.txt)
-   changed: [192.168.6.100] => (item=2.txt)
-   ok: [192.168.6.11] => (item=2.txt)
-   changed: [192.168.6.100] => (item=3.txt)
-   ok: [192.168.6.11] => (item=3.txt)
-   
-   PLAY RECAP **************************************************************************************************************************************************
-   192.168.6.100              : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-   192.168.6.11               : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-   
-   ```
-
-4. 条件判断
-
-   ```sh
-   # 创建yml文件
-   [root@ansible1 tmp]# cat /root/when.yml 
-   ---
-   - hosts: testhost
-     user: root
-     gather_facts: True
-     tasks:
-       - name: use when
-         shell: touch /tmp/when.txt
-         when: ansible_ens33.ipv4.address == "192.168.6.100"
-   
-   
-   # 参数详解
-   这是一个 Ansible playbook 文件，其含义是：
-   
-   - `hosts`: 指定要操作的主机或主机组名。在这里，指定要操作的主机为 `testhost`。
-   - `user`: 指定连接主机的用户名。在这里，指定连接的用户为 `root`。
-   - `gather_facts`: 指定是否在任务之前收集主机信息。在这里，设置为 `True`，表示在任务之前将会收集主机信息。
-   - `tasks`: 指定具体要执行的任务。在这里，指定执行一个名为 `use when` 的任务。
-   - `name`: 指定任务的名称。在这里，设置任务名称为 `use when`。
-   - `shell`: 指定要执行的命令。在这里，执行 `touch /tmp/when.txt` 命令，用于创建一个名为 `when.txt` 的文件。
-   - `when`: 指定任务的条件。在这里，当主机的 `ansible_ens33` 网卡的 IPv4 地址为 `192.168.6.100` 时，才会执行该任务。
-   
-   # 执行
-   [root@ansible1 tmp]# ansible-playbook /root/when.yml
-   
-   PLAY [testhost] *********************************************************************************************************************************************
-   
-   TASK [Gathering Facts] **************************************************************************************************************************************
-   ok: [192.168.6.100]
-   ok: [192.168.6.11]
-   
-   TASK [use when] *********************************************************************************************************************************************
-   skipping: [192.168.6.11]
-   [WARNING]: Consider using the file module with state=touch rather than running 'touch'.  If you need to use command because file is insufficient you can add
-   'warn: false' to this command task or set 'command_warnings=False' in ansible.cfg to get rid of this message.
-   changed: [192.168.6.100]
-   
-   PLAY RECAP **************************************************************************************************************************************************
-   192.168.6.100              : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-   192.168.6.11               : ok=1    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
-   
-   
-   
-   # 测试
-   [root@ansible2 tmp]# ll when.txt 
-   -rw-r--r-- 1 root root 0 May 10 09:54 when.txt
-   ```
-
-5. handlers
-
-   执行task之后，服务器发生变化之后要执行的一些操作，比如我们修改了配置文件后，需要重启一些服务
-
-   ```sh
-   # 创建yml文件
-   [root@ansible1 ~]# cat handlers.yml 
-   ---
-   - name: handlers test
-     hosts: 192.168.6.100
-     user: root
-     tasks:
-       - name: copy file
-         copy: src=/etc/passwd dest=/tmp/aaa.txt
-         notify: test handlers
-     handlers:
-       - name: test handlers
-         shell: echo "111" >> /tmp/aaa.txt
-   
-   # 参数详解
-   1. 只有copy模块执行后，才会调用下面的handlers操作，比较适合配hi文件发生更改后，重启服务的操作
-   2. handlers参数，指明在tasks的操作完成之后才执行的操作
-   
-   
-   
-   # 执行
-   [root@ansible1 ~]# ansible-playbook handlers.yml
-   
-   PLAY [handlers test] ****************************************************************************************************************************************
-   
-   TASK [Gathering Facts] **************************************************************************************************************************************
-   ok: [192.168.6.100]
-   
-   TASK [copy file] ********************************************************************************************************************************************
-   changed: [192.168.6.100]
-   
-   RUNNING HANDLER [test handlers] *****************************************************************************************************************************
-   changed: [192.168.6.100]
-   
-   PLAY RECAP **************************************************************************************************************************************************
-   192.168.6.100              : ok=3    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0 
-   
-   
-   # 测试
-   [root@ansible2 tmp]# cat aaa.txt 
-   root:x:0:0:root:/root:/bin/bash
-   bin:x:1:1:bin:/bin:/sbin/nologin
-   daemon:x:2:2:daemon:/sbin:/sbin/nologin
-   adm:x:3:4:adm:/var/adm:/sbin/nologin
-   lp:x:4:7:lp:/var/spool/lpd:/sbin/nologin
-   sync:x:5:0:sync:/sbin:/bin/sync
-   shutdown:x:6:0:shutdown:/sbin:/sbin/shutdown
-   halt:x:7:0:halt:/sbin:/sbin/halt
-   mail:x:8:12:mail:/var/spool/mail:/sbin/nologin
-   operator:x:11:0:operator:/root:/sbin/nologin
-   games:x:12:100:games:/usr/games:/sbin/nologin
-   ftp:x:14:50:FTP User:/var/ftp:/sbin/nologin
-   nobody:x:99:99:Nobody:/:/sbin/nologin
-   systemd-network:x:192:192:systemd Network Management:/:/sbin/nologin
-   dbus:x:81:81:System message bus:/:/sbin/nologin
-   polkitd:x:999:998:User for polkitd:/:/sbin/nologin
-   sshd:x:74:74:Privilege-separated SSH:/var/empty/sshd:/sbin/nologin
-   postfix:x:89:89::/var/spool/postfix:/sbin/nologin
-   chrony:x:998:996::/var/lib/chrony:/sbin/nologin
-   fdy:x:1000:1000::/home/fdy:/bin/bash
-   apache:x:48:48:Apache:/usr/share/httpd:/sbin/nologin
-   111
-   ```
-
-   
+```yaml
+# 创建yml文件
+[root@ansible1 ~]# cat /etc/ansible/test.yml 
+---
+- hosts: 192.168.6.100
+  remote_user: root
+  tasks:
+  - name: test_playbook
+    shell: touch /tmp/playbook_test.txt
+    
+    
+    
+    
+# 参数详解
+1. host参数指定了对哪些主机进程操作，如果多态主机可用逗号作为分隔，也可以使用主机组，主机组在/etc/ansible/hosts里定义
+2. remote_user参数指定使用什么用户登录远程主机操作
+3. tasks参数指定路由一个任务
+4. tasks参数下的name是对任务的描述，在执行过程中会打印出来
+5. tasks参数下的shell是一个模块，指定使用shell模块去执行touch命令
 
 
+
+
+
+
+
+# 执行
+[root@ansible1 ~]# ansible-playbook /etc/ansible/test.yml
+
+PLAY [192.168.6.100] ***********************************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [192.168.6.100]
+
+TASK [test_playbook] ***********************************************************
+[WARNING]: Consider using the file module with state=touch rather than running
+'touch'.  If you need to use command because file is insufficient you can add
+'warn: false' to this command task or set 'command_warnings=False' in
+ansible.cfg to get rid of this message.
+changed: [192.168.6.100]
+
+PLAY RECAP *********************************************************************
+192.168.6.100              : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0 
+
+# 测试
+[root@ansible2 tmp]# ll
+total 16
+-rw-r--r--  1 root root 936 May  9 10:55 123
+-rw-r--r--  1 root root  28 May  9 14:08 ansible_test.txt
+-rwx------. 1 root root 836 May  8 12:00 ks-script-Oqh8jU
+-rw-r--r--  1 root root   0 May 10 08:28 playbook_test.txt
+drwx------  3 root root  17 May 10 08:13 systemd-private-dabeb86043344ce39378b87cfbb16d4a-chronyd.service-zprDZH
+drwx------  3 root root  17 May 10 08:13 systemd-private-dabeb86043344ce39378b87cfbb16d4a-httpd.service-sJwku6
+-rwxr-xr-x  1 root root  48 May  9 09:24 test.sh
+drwx------  2 root root   6 May  8 12:10 vmware-root_639-3988031840
+drwx------  2 root root   6 May  9 08:59 vmware-root_647-3988163046
+drwx------  2 root root   6 May  8 12:11 vmware-root_648-2688619569
+drwx------  2 root root   6 May  8 12:09 vmware-root_652-2697074100
+drwx------  2 root root   6 May 10 08:13 vmware-root_657-4022112241
+drwx------. 2 root root   6 May  8 12:05 vmware-root_660-2697467306
+drwx------. 2 root root   6 May  8 12:01 vmware-root_674-2731152261
+-rw-------. 1 root root   0 May  8 11:56 yum.log
+```
+
+## **创建用户**
+
+```yml
+# 创建yml文件
+[root@ansible1 ~]# cat  create_user.yml 
+---
+- name: create_user
+  hosts: 192.168.6.100
+  user: root
+  gather_facts: false
+  vars:
+    - user: "test"
+  tasks:
+    - name: create user
+      user: name="{{ user }}"
+
+
+
+
+参数详解：
+1. name参数是对plaaybook实现的功能做一个概述，可省略
+2. gather_facts参数指定了在以下任务部分执行前，是否先执行setup模块来获取主机相关信息，在这后面的task会使用到setup获取的信息时使用到
+3. vars参数指定了变量，这里指一个user变量，变量值为test
+4. tasks参数下的name说明此任务名为create user
+5. tasks参数下的user指定创建一个名为user变量(test)的用户
+
+
+# 执行
+[root@ansible1 ~]# ansible-playbook create_user.yml 
+
+PLAY [create_user] *************************************************************
+
+TASK [create user] *************************************************************
+changed: [192.168.6.100]
+
+PLAY RECAP *********************************************************************
+192.168.6.100              : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+# 测试
+[root@ansible2 tmp]# cat /etc/passwd
+root:x:0:0:root:/root:/bin/bash
+bin:x:1:1:bin:/bin:/sbin/nologin
+daemon:x:2:2:daemon:/sbin:/sbin/nologin
+adm:x:3:4:adm:/var/adm:/sbin/nologin
+lp:x:4:7:lp:/var/spool/lpd:/sbin/nologin
+sync:x:5:0:sync:/sbin:/bin/sync
+shutdown:x:6:0:shutdown:/sbin:/sbin/shutdown
+halt:x:7:0:halt:/sbin:/sbin/halt
+mail:x:8:12:mail:/var/spool/mail:/sbin/nologin
+operator:x:11:0:operator:/root:/sbin/nologin
+games:x:12:100:games:/usr/games:/sbin/nologin
+ftp:x:14:50:FTP User:/var/ftp:/sbin/nologin
+nobody:x:99:99:Nobody:/:/sbin/nologin
+systemd-network:x:192:192:systemd Network Management:/:/sbin/nologin
+dbus:x:81:81:System message bus:/:/sbin/nologin
+polkitd:x:999:998:User for polkitd:/:/sbin/nologin
+sshd:x:74:74:Privilege-separated SSH:/var/empty/sshd:/sbin/nologin
+postfix:x:89:89::/var/spool/postfix:/sbin/nologin
+chrony:x:998:996::/var/lib/chrony:/sbin/nologin
+apache:x:48:48:Apache:/usr/share/httpd:/sbin/nologin
+test:x:1000:1000::/home/test:/bin/bash
+
+
+# 创建mysql用户
+[root@ansible1 ~]# cat 2.yml 
+---
+- hosts: ansible2
+  remote_user: root
+  gather_facts: no
+  tasks:
+  - {name: create group, group: name=mysql system=yes gid=1002}
+  - name: create user
+    user: name=mysql system=yes uid=1002 shell=/sbin/nologin group=mysql home=/data/mysql create_home=no
+
+```
+
+## 循环
+
+```sh
+# 先在testhost主机组中的所有主机创建/tmp/1.txt /tmp/2.txt /tmp/3.txt三个文件
+# 创建yml文件
+[root@ansible1 ~]# cat while.yml 
+---
+- hosts: testhost
+  user: root
+  tasks:
+  - name: change mode for files
+    file: path=/tmp/{{ item }} mode=600
+    with_items:
+      - 1.txt
+      - 2.txt
+      - 3.txt
+
+
+
+
+# 执行
+[root@ansible1 ~]# ansible-playbook while.yml
+
+PLAY [testhost] *********************************************************************************************************************************************
+
+TASK [Gathering Facts] **************************************************************************************************************************************
+ok: [192.168.6.11]
+ok: [192.168.6.100]
+
+TASK [change mode for files] ********************************************************************************************************************************
+changed: [192.168.6.100] => (item=1.txt)
+ok: [192.168.6.11] => (item=1.txt)
+changed: [192.168.6.100] => (item=2.txt)
+ok: [192.168.6.11] => (item=2.txt)
+changed: [192.168.6.100] => (item=3.txt)
+ok: [192.168.6.11] => (item=3.txt)
+
+PLAY RECAP **************************************************************************************************************************************************
+192.168.6.100              : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+192.168.6.11               : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+```
+
+## 条件判断
+
+```sh
+# 创建yml文件
+[root@ansible1 tmp]# cat /root/when.yml 
+---
+- hosts: testhost
+  user: root
+  gather_facts: True
+  tasks:
+    - name: use when
+      shell: touch /tmp/when.txt
+      when: ansible_ens33.ipv4.address == "192.168.6.100"
+
+
+# 参数详解
+这是一个 Ansible playbook 文件，其含义是：
+
+- `hosts`: 指定要操作的主机或主机组名。在这里，指定要操作的主机为 `testhost`。
+- `user`: 指定连接主机的用户名。在这里，指定连接的用户为 `root`。
+- `gather_facts`: 指定是否在任务之前收集主机信息。在这里，设置为 `True`，表示在任务之前将会收集主机信息。
+- `tasks`: 指定具体要执行的任务。在这里，指定执行一个名为 `use when` 的任务。
+- `name`: 指定任务的名称。在这里，设置任务名称为 `use when`。
+- `shell`: 指定要执行的命令。在这里，执行 `touch /tmp/when.txt` 命令，用于创建一个名为 `when.txt` 的文件。
+- `when`: 指定任务的条件。在这里，当主机的 `ansible_ens33` 网卡的 IPv4 地址为 `192.168.6.100` 时，才会执行该任务。
+
+# 执行
+[root@ansible1 tmp]# ansible-playbook /root/when.yml
+
+PLAY [testhost] *********************************************************************************************************************************************
+
+TASK [Gathering Facts] **************************************************************************************************************************************
+ok: [192.168.6.100]
+ok: [192.168.6.11]
+
+TASK [use when] *********************************************************************************************************************************************
+skipping: [192.168.6.11]
+[WARNING]: Consider using the file module with state=touch rather than running 'touch'.  If you need to use command because file is insufficient you can add
+'warn: false' to this command task or set 'command_warnings=False' in ansible.cfg to get rid of this message.
+changed: [192.168.6.100]
+
+PLAY RECAP **************************************************************************************************************************************************
+192.168.6.100              : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+192.168.6.11               : ok=1    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+
+
+
+# 测试
+[root@ansible2 tmp]# ll when.txt 
+-rw-r--r-- 1 root root 0 May 10 09:54 when.txt
+```
+
+## handlers
+
+执行task之后，服务器发生变化之后要执行的一些操作，比如我们修改了配置文件后，需要重启一些服务
+
+```sh
+# 创建yml文件
+[root@ansible1 ~]# cat handlers.yml 
+---
+- name: handlers test
+  hosts: 192.168.6.100
+  user: root
+  tasks:
+    - name: copy file
+      copy: src=/etc/passwd dest=/tmp/aaa.txt
+      notify: test handlers
+  handlers:
+    - name: test handlers
+      shell: echo "111" >> /tmp/aaa.txt
+
+# 参数详解
+1. 只有copy模块执行后，才会调用下面的handlers操作，比较适合配hi文件发生更改后，重启服务的操作
+2. handlers参数，指明在tasks的操作完成之后才执行的操作
+
+
+
+# 执行
+[root@ansible1 ~]# ansible-playbook handlers.yml
+
+PLAY [handlers test] ****************************************************************************************************************************************
+
+TASK [Gathering Facts] **************************************************************************************************************************************
+ok: [192.168.6.100]
+
+TASK [copy file] ********************************************************************************************************************************************
+changed: [192.168.6.100]
+
+RUNNING HANDLER [test handlers] *****************************************************************************************************************************
+changed: [192.168.6.100]
+
+PLAY RECAP **************************************************************************************************************************************************
+192.168.6.100              : ok=3    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0 
+
+
+# 测试
+[root@ansible2 tmp]# cat aaa.txt 
+root:x:0:0:root:/root:/bin/bash
+bin:x:1:1:bin:/bin:/sbin/nologin
+daemon:x:2:2:daemon:/sbin:/sbin/nologin
+adm:x:3:4:adm:/var/adm:/sbin/nologin
+lp:x:4:7:lp:/var/spool/lpd:/sbin/nologin
+sync:x:5:0:sync:/sbin:/bin/sync
+shutdown:x:6:0:shutdown:/sbin:/sbin/shutdown
+halt:x:7:0:halt:/sbin:/sbin/halt
+mail:x:8:12:mail:/var/spool/mail:/sbin/nologin
+operator:x:11:0:operator:/root:/sbin/nologin
+games:x:12:100:games:/usr/games:/sbin/nologin
+ftp:x:14:50:FTP User:/var/ftp:/sbin/nologin
+nobody:x:99:99:Nobody:/:/sbin/nologin
+systemd-network:x:192:192:systemd Network Management:/:/sbin/nologin
+dbus:x:81:81:System message bus:/:/sbin/nologin
+polkitd:x:999:998:User for polkitd:/:/sbin/nologin
+sshd:x:74:74:Privilege-separated SSH:/var/empty/sshd:/sbin/nologin
+postfix:x:89:89::/var/spool/postfix:/sbin/nologin
+chrony:x:998:996::/var/lib/chrony:/sbin/nologin
+fdy:x:1000:1000::/home/fdy:/bin/bash
+apache:x:48:48:Apache:/usr/share/httpd:/sbin/nologin
+111
+```
+
+## notify
+
+```yaml
+# notify和handlers的区别
+1. 执行时机不同：notify参数是在某些任务执行成功后才会触发，而handlers参数则是在整个playbook运行完毕后才会被执行
+2. 使用方式不同：notify参数实在任务中使用changed_when或者failed_when来条件化触发
+
+
+# 这里的notify参数在service模块执行成功并触发了状态变更（changed）后，触发了名为“reload nginx”的操作。
+ - name: restart nginx
+   service:
+     name: nginx
+     state: restarted
+   notify: reload nginx
+
+ handlers:
+   - name: reload nginx
+     service:
+       name: nginx
+       state: reloaded
+
+
+# 这里的handlers参数定义了一个名为“restart apache”的操作，该操作会在整个Playbook运行结束时调用。
+ handlers:
+   - name: restart apache
+     service:
+       name: apache2
+       state: restarted
+
+# 总的来说，notify参数适用于只有特定情况下才需要执行的任务，而handlers参数适用于所有任务都完成后需要执行的操作。
+```
+
+## 安装nginx
+
+```yaml
+---
+- hosts: nginx
+  remote_user: root
+  gather_facts: no
+  tasks:
+  - name: add group nginx
+    group: name=nginx state=present
+  - name: add user nginx
+    user: name=nginx state=present group=nginx
+  - name: Install Nginx
+    yum: name=nginx state=present
+  - name: web page
+    copy: src=files/index.html dest=/usr/share/nginx/html/index.html
+  - name: Start Nginx
+    service: name=nginx state=started enabled=yes
+  - name: wait nginx started
+    wait_for: port=80 state=started delay=10
+  - name: curl http
+    uri: url="http: /localhost" return_content=yes
+    register: curl
+  - name: echo http content
+    debug: msg={{ curl.content }}
+```
+
+## 忽略错误
+
+```yaml
+# 如果一个task出错，默认将不会继续执行后续其他task
+# 利用
+
+---
+- hosts: websrvs
+  tasks:
+  - name: error
+    command: /bin/false
+    ignore_errors: yes
+  - name: continue
+    command: wall continue
+```
+
+## 变量
+
+```
+# 变量名：仅能由字母，数字和下划线组成，且只能以字母开头
+
+```
 
