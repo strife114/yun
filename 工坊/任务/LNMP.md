@@ -93,6 +93,10 @@
    
    # 直接在外面输入命令修改密码
    mysqladmin -u "$MARIADB_USER" password "$MARIADB_PASS"
+
+   # 出现密码权限不足的情况可修改密码策略
+   set global validate_password_policy=LOW;
+   set global validate_password.length=6;
    ```
    
    
