@@ -476,6 +476,8 @@ Dir         Dockerfile所在目录
 
 2. 构建的准备工作
 
+   创建apache的wordpress配置文件
+
    ```sh
    [root@docker ~]# cat wordpress.conf 
    <VirtualHost *:80>
@@ -487,11 +489,11 @@ Dir         Dockerfile所在目录
            Require all granted
        </Directory>
    </VirtualHost>
-   
-   
-   
-   
-   
+   ```
+
+   创建wp-config.php配置文件
+
+   ```sh
    [root@docker ~]# cat wp-config.php 
    <?php
    /**
@@ -626,8 +628,9 @@ Dir         Dockerfile所在目录
    
    /** Sets up WordPress vars and included files. */
    require_once ABSPATH . 'wp-settings.php';
-   
    ```
+
+   
 
 3. 构建wordpress镜像
 
