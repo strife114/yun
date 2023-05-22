@@ -1299,7 +1299,7 @@ user = nginx
 group = nginx
 # 文件最后修改以下两行
 php_value[session.save_handler] = redis
-php_value[session.save_path] = "tcp://10.0.0.22.6379"
+php_value[session.save_path] = "tcp://192.168.6.3:6379"
 
 
 ; Start a new pool named 'www'.
