@@ -171,7 +171,9 @@ docker run --name some-nginx -d -p 8080:80 nginx:1.22
 docker run -d centos       崩溃
 docker run -it -d centos   启动
 
-# 如果一个容器已经启动，可以使用docker exec在运行的容器中执行命令，一般配合it参数使用交互模式
+# 前台启动的话可以直接通过run进入
+docker run -ti mysql:latest some-mysql /bin/bash
+# 如果一个容器已经启动(后台)，可以使用docker exec在运行的容器中执行命令，一般配合it参数使用交互模式
 docker exec -it some-mysql /bin/bash
 
 # 性能限制
@@ -213,7 +215,31 @@ docker stats 容器名
 # 启动、停止、重启、删除容器
 docker start/stop/restart/rm  容器名
 
+# 停止所有容器
+docker stop $(docker ps -a -q)
+```
 
+
+
+
+
+# docker-compose命令
+
+```sh
+# 后台启动，如果容器不存在根据镜像⾃动创建
+docker-compose up -d
+# 停⽌容器并删除容器
+docker-compose down
+# 启动容器，容器不存在就⽆法启动，不会⾃动创建镜像
+docker-compose start
+# 停⽌容器
+docker-compose stop
+
+停⽌服务： docker-compose stop
+开始服务： docker-compose start
+重启服务：docker-compose restart
+停⽌服务并删除容器：docker-compose down
+启动服务并运⾏容器：docker-compose up
 ```
 
 
@@ -376,7 +402,7 @@ Dir         Dockerfile所在目录
 
 
 
-# 实验
+# MySQL+Wordpress实验
 
 ## MySQL+Wordpress
 
@@ -688,6 +714,77 @@ Dir         Dockerfile所在目录
    
    # 注意：
    1. 因为这里的6.2.2是官方的安装包，所以没有中文选项，会直接进入初始化
+   ```
+
+   
+
+
+
+
+
+# Harbor仓库本机部署实验
+
+## Harbor1.1.2
+
+1. 下载部署docker-compose
+
+   ```sh
+   [root@docker ~]# curl -SL https://github.com/docker/compose/releases/download/v2.17.2/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+   
+   # 赋权
+   [root@docker ~]# chmod 755 /usr/loca/bin/docker-compose
+   ```
+
+2. 下载harbor
+
+   ```sh
+   [root@docker ~]# wget https://github.com/vmware/harbor/releases/download/v1.1.2/harbor-offline-installer-v1.1.2.tgz
+   ```
+
+3. 创建目录并解压
+
+   ```sh
+   [root@docker ~]# mkdir /data
+   [root@docker ~]# tar zxvf harbor-offline-installer-v1.1.2.tgz -C /data/
+   ```
+
+4. 设置配置文件
+
+   ```sh
+   root@docker /]# cd /data/harbor/
+   [root@docker harbor]# ls
+   common  docker-compose.notary.yml  docker-compose.yml  harbor_1_1_0_template  harbor.cfg  harbor.v1.1.2.tar.gz  install.sh  LICENSE  NOTICE  prepare  upgrade
+   [root@docker harbor]# vim harbor.cfg
+   # 修改此值，其他默认即可
+   hostname = 192.168.6.4
+   ```
+
+5. 启动
+
+   ```sh
+   [root@docker harbor]# ./install.sh
+   
+   
+   # 查看docker
+   [root@docker harbor]# docker ps
+   CONTAINER ID   IMAGE                              COMMAND                  CREATED         STATUS         PORTS                                                                                                                 NAMES
+   727e2b9ed5a3   vmware/harbor-jobservice:v1.1.2    "/harbor/harbor_jobs…"   8 minutes ago   Up 8 minutes                                                                                                                         harbor-jobservice
+   a6042454318a   vmware/nginx:1.11.5-patched        "nginx -g 'daemon of…"   8 minutes ago   Up 8 minutes   0.0.0.0:80->80/tcp, :::80->80/tcp, 0.0.0.0:443->443/tcp, :::443->443/tcp, 0.0.0.0:4443->4443/tcp, :::4443->4443/tcp   nginx
+   f988f5162a1c   vmware/harbor-ui:v1.1.2            "/harbor/harbor_ui"      8 minutes ago   Up 8 minutes                                                                                                                         harbor-ui
+   17c2b1caf8fb   vmware/registry:2.6.1-photon       "/entrypoint.sh serv…"   8 minutes ago   Up 8 minutes   5000/tcp                                                                                                              registry
+   7dceb936065b   vmware/harbor-db:v1.1.2            "docker-entrypoint.s…"   8 minutes ago   Up 8 minutes   3306/tcp                                                                                                              harbor-db
+   4ea635b3b04e   vmware/harbor-adminserver:v1.1.2   "/harbor/harbor_admi…"   8 minutes ago   Up 8 minutes                                                                                                                         harbor-adminserver
+   c0351e60a56c   vmware/harbor-log:v1.1.2           "/bin/sh -c 'crond &…"   8 minutes ago   Up 8 minutes   127.0.0.1:1514->514/tcp                                                                                               harbor-log
+   
+   ```
+
+6. 浏览器访问
+
+   ```
+   192.168.6.4
+   
+   默认用户名：admin
+   默认密码：Harbor12345
    ```
 
    
