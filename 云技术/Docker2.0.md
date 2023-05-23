@@ -190,8 +190,11 @@ docker exec -it some-mysql /bin/bash
 ```sh
 # 列出容器
 docker ps
+# 列出所有容器
+docker ps -a
+# 列出所有容器id
+docker ps -a -q
 
-# 
 
 # 查看一个或多个容器详细信息
 docker inspect
@@ -254,7 +257,7 @@ Docker提供两种方式将数据从宿主机挂载到容器中：
 
 ### 基本命令
 
-```
+```sh
 docker inspect  容器名              数据卷看数据卷信息
 docker run -itd -v                 数据卷:容器内目录 使用某个数据卷
 docker volume ls                   列出所有数据卷容器id
