@@ -48,7 +48,11 @@ docker  -v
 systemctl start docker && systemctl enable docker
 ```
 
+## 一键部署
 
+```sh
+curl -fsSL https://get.docker.com | bash -s docker --mirror Aliyun
+```
 
 
 
@@ -791,3 +795,194 @@ Dir         Dockerfile所在目录
    ```
 
    
+
+
+
+## Harbor2.4.0
+
+1. 下载部署Harbor2.4.0
+
+   ```sh
+   # 链接已失效，请自行寻找软件包下载
+   [root@docker ~]# mkdir /data1
+   [root@docker ~]# tar zxf harbor-offline-installer-v2.4.0.tgz -C /data1
+   [root@docker harbor]# cd /data1/harbor/
+   [root@docker harbor]# cp harbor.yml.tmpl harbor.yml
+   ```
+
+2. 编辑配置文件
+
+   ```sh
+   [root@docker harbor]# vim harbor.yml
+   # 修改hostname
+   hostname 192.168.6.4
+   
+   # 注释https服务
+   #https:
+     # https port for harbor, default is 443
+    # port: 443
+     # The path of cert and key files for nginx
+     #certificate: /your/certificate/path
+    # private_key: /your/private/key/path
+   
+   
+   # 更改数据源
+   data_volume: /data1
+   ```
+
+3. 运行配置文件更新脚本
+
+   ```sh
+   [root@docker harbor]# ./prepare
+   ```
+
+4. 执行编排脚本
+
+   ```sh
+   [root@docker harbor]# ./install.sh
+   ```
+
+5. web界面访问
+
+   ```sh
+   ip
+   默认用户名：admin
+   默认用户密码：Harbor12345
+   ```
+
+6. 新建名为fdy的项目，并设置访问级别为公开
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/docker/harbor1.png)
+
+7. 本机上传镜像
+
+    ```sh
+      # 修改docker配置
+      [root@docker harbor]# cat /etc/docker/daemon.json 
+      {
+           "registry-mirrors": ["https://registry.docker-cn.com"],
+           "insecure-registries" : ["192.168.6.4:80"]
+      }
+      
+      # 重启docker
+      [root@docker harbor]# systemctl restart docker
+      [root@docker harbor]# docker-compose down
+      [root@docker harbor]# ./install
+      
+      # 登陆本机仓库
+      [root@docker harbor]# docker login 192.168.6.4:80
+      Authenticating with existing credentials...
+      WARNING! Your password will be stored unencrypted in /root/.docker/config.json.
+      Configure a credential helper to remove this warning. See
+      https://docs.docker.com/engine/reference/commandline/login/#credentials-store
+      
+      Login Succeeded
+      
+      
+      # 注意
+      1. 重启docker服务后harbor的相关容器会掉线或出现意外情况
+      # 解决方法
+      1. 使用docker-compose命令卸载harbor并重新安装
+         docker-compose down
+         ./install.sh
+    ```
+
+      ```sh
+      # 给MySQL打标签
+      [root@docker harbor]# docker tag mysql:5.7 192.168.6.4:80/fdy/mysql:5.7
+      [root@docker harbor]# docker images
+      REPOSITORY                         TAG               IMAGE ID       CREATED         SIZE
+      wordpress2                         6.2.2             4fca88a1dc7d   3 days ago      787MB
+      wordpress                          6.2.1             b8ee07adfa91   7 days ago      616MB
+      wordpress                          latest            c3c92cc3dcb1   17 months ago   616MB
+      192.168.6.4:80/fdy/mysql           5.7               c20987f18b13   17 months ago   448MB
+      mysql                              5.7               c20987f18b13   17 months ago   448MB
+      goharbor/harbor-exporter           v2.4.0            4c61c8b7a70c   19 months ago   82MB
+      goharbor/chartmuseum-photon        v2.4.0            67b824008b50   19 months ago   173MB
+      goharbor/redis-photon              v2.4.0            8db1d1af9272   19 months ago   155MB
+      goharbor/trivy-adapter-photon      v2.4.0            bfd73a656727   19 months ago   148MB
+      goharbor/notary-server-photon      v2.4.0            f07f3e0c3bea   19 months ago   110MB
+      goharbor/notary-signer-photon      v2.4.0            dd4d5090ab32   19 months ago   107MB
+      goharbor/harbor-registryctl        v2.4.0            7cb8dd808259   19 months ago   136MB
+      goharbor/registry-photon           v2.4.0            928dc0fba05c   19 months ago   78.5MB
+      goharbor/nginx-photon              v2.4.0            a2592618911d   19 months ago   45MB
+      goharbor/harbor-log                v2.4.0            a54fed3c39f6   19 months ago   159MB
+      goharbor/harbor-jobservice         v2.4.0            cd119b9530dd   19 months ago   220MB
+      goharbor/harbor-core               v2.4.0            3399864a55e2   19 months ago   197MB
+      goharbor/harbor-portal             v2.4.0            f585c7a62e69   19 months ago   54MB
+      goharbor/harbor-db                 v2.4.0            de4b1b67e241   19 months ago   228MB
+      goharbor/prepare                   v2.4.0            5216fde1e4e8   19 months ago   254MB
+      centos                             7.9.2009          eeb6ee3f44bd   20 months ago   204MB
+      centos                             latest            5d0da3dc9764   20 months ago   231MB
+      vmware/harbor-jobservice           v1.1.2            ac332f9bd31c   5 years ago     163MB
+      vmware/harbor-ui                   v1.1.2            803897be484a   5 years ago     183MB
+      vmware/harbor-adminserver          v1.1.2            360b214594e7   5 years ago     142MB
+      vmware/harbor-db                   v1.1.2            6f71ee20fe0c   5 years ago     329MB
+      vmware/registry                    2.6.1-photon      0f6c96580032   6 years ago     150MB
+      vmware/harbor-notary-db            mariadb-10.1.10   64ed814665c6   6 years ago     324MB
+      vmware/nginx                       1.11.5-patched    8ddadb143133   6 years ago     199MB
+      vmware/notary-photon               signer-0.5.0      b1eda7d10640   6 years ago     156MB
+      vmware/notary-photon               server-0.5.0      6e2646682e3c   6 years ago     157MB
+      vmware/harbor-log                  v1.1.2            9c46a7b5e517   6 years ago     192MB
+      photon                             1.0               e6e4e4a2ba1b   6 years ago     128MB
+      
+      
+      # 推送镜像到本地harbor仓库的fdy项目
+      [root@docker harbor]# docker push 192.168.6.4:80/fdy/mysql:5.7
+      
+      
+      
+      
+      # 给wordpress打标签
+      [root@docker harbor]# docker tag wordpress:6.2.1 192.168.6.4:80/library/wordpress:6.2.1
+      [root@docker harbor]# docker images
+      REPOSITORY                         TAG               IMAGE ID       CREATED         SIZE
+      wordpress2                         6.2.2             4fca88a1dc7d   3 days ago      787MB
+      192.168.6.4:80/library/wordpress   6.2.1             b8ee07adfa91   7 days ago      616MB
+      wordpress                          6.2.1             b8ee07adfa91   7 days ago      616MB
+      wordpress                          latest            c3c92cc3dcb1   17 months ago   616MB
+      192.168.6.4:80/fdy/mysql           5.7               c20987f18b13   17 months ago   448MB
+      mysql                              5.7               c20987f18b13   17 months ago   448MB
+      goharbor/harbor-exporter           v2.4.0            4c61c8b7a70c   19 months ago   82MB
+      goharbor/chartmuseum-photon        v2.4.0            67b824008b50   19 months ago   173MB
+      goharbor/redis-photon              v2.4.0            8db1d1af9272   19 months ago   155MB
+      goharbor/trivy-adapter-photon      v2.4.0            bfd73a656727   19 months ago   148MB
+      goharbor/notary-server-photon      v2.4.0            f07f3e0c3bea   19 months ago   110MB
+      goharbor/notary-signer-photon      v2.4.0            dd4d5090ab32   19 months ago   107MB
+      goharbor/harbor-registryctl        v2.4.0            7cb8dd808259   19 months ago   136MB
+      goharbor/registry-photon           v2.4.0            928dc0fba05c   19 months ago   78.5MB
+      goharbor/nginx-photon              v2.4.0            a2592618911d   19 months ago   45MB
+      goharbor/harbor-log                v2.4.0            a54fed3c39f6   19 months ago   159MB
+      goharbor/harbor-jobservice         v2.4.0            cd119b9530dd   19 months ago   220MB
+      goharbor/harbor-core               v2.4.0            3399864a55e2   19 months ago   197MB
+      goharbor/harbor-portal             v2.4.0            f585c7a62e69   19 months ago   54MB
+      goharbor/harbor-db                 v2.4.0            de4b1b67e241   19 months ago   228MB
+      goharbor/prepare                   v2.4.0            5216fde1e4e8   19 months ago   254MB
+      centos                             7.9.2009          eeb6ee3f44bd   20 months ago   204MB
+      centos                             latest            5d0da3dc9764   20 months ago   231MB
+      vmware/harbor-jobservice           v1.1.2            ac332f9bd31c   5 years ago     163MB
+      vmware/harbor-ui                   v1.1.2            803897be484a   5 years ago     183MB
+      vmware/harbor-adminserver          v1.1.2            360b214594e7   5 years ago     142MB
+      vmware/harbor-db                   v1.1.2            6f71ee20fe0c   5 years ago     329MB
+      vmware/registry                    2.6.1-photon      0f6c96580032   6 years ago     150MB
+      vmware/harbor-notary-db            mariadb-10.1.10   64ed814665c6   6 years ago     324MB
+      vmware/nginx                       1.11.5-patched    8ddadb143133   6 years ago     199MB
+      vmware/notary-photon               signer-0.5.0      b1eda7d10640   6 years ago     156MB
+      vmware/notary-photon               server-0.5.0      6e2646682e3c   6 years ago     157MB
+      vmware/harbor-log                  v1.1.2            9c46a7b5e517   6 years ago     192MB
+      photon                             1.0               e6e4e4a2ba1b   6 years ago     128MB
+      
+      
+      # 推送wordpress镜像到本地library仓库
+      [root@docker harbor]# docker push 192.168.6.4:80/library/wordpress:6.2.1
+      ```
+
+8. 验证
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/docker/harbor2.png)
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/docker/harbor3.png)
+
+   
+
+  
