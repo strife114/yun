@@ -986,3 +986,144 @@ Dir         Dockerfile所在目录
    
 
   
+
+# 可道云容器部署实验
+
+## 本地部署
+
+1. 配置yum源
+
+   ```sh
+   rm -rf /etc/yum.repos.d/*
+   wget -O /etc/yum.repos.d/CentOS-Base.repo https://mirrors.aliyun.com/repo/Centos-7.repo
+   wget -O /etc/yum.repos.d/epel.repo http://mirrors.aliyun.com/repo/epel-7.repo
+   ```
+
+2. 安装依赖包
+
+   ```sh
+   yum install nginx net-tools php-cli php-fpm unzip php-gd php-mbstring vim -y
+   ```
+
+3. 修改php配置文件
+
+   ```sh
+   vim /etc/php-fpm.d/www.conf
+   39:user = nginx
+   41:group = nginx
+   
+   # 启动服务
+   systemctl start php-fpm
+   ```
+
+4. 配置nginx支持php
+
+   ```sh
+   [root@docker kodexporer]# cat /etc/nginx/conf.d/kodexporer.conf 
+   server {
+    listen 80;
+    server_name kodexporer.com;
+    location / {
+    root /data/kodexporer;
+    index index.php index.html;
+    }
+    location ~ \.php$ {
+    root /data/kodexporer;
+    fastcgi_pass 127.0.0.1:9000;
+    fastcgi_index index.php;
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    include fastcgi_params;
+    }
+   }
+   
+   # 检测配置
+   nginx -t
+   # 启动服务
+   systemctl start nginx
+   ```
+
+5. 下载可道云压缩包
+
+   ```sh
+   wget http://static.kodcloud.com/update/download/kodexplorer4.37.zip
+   mv kodexplorer4.37.zip /data/kodexporer/
+   cd /data/kodexporer/
+   unzip kodexplorer4.37.zip
+   chown -R nginx:nginx /data/kodexporer/
+   ```
+
+6. 浏览器访问ip:80
+
+
+
+## 容器部署
+
+1. 准备配置文件
+
+   ```sh
+   [root@docker kodexporer]# cat kodexporer.conf 
+   server {
+    listen 80;
+    server_name kodexporer.com;
+    location / {
+    root /data/kodexporer;
+    index index.php index.html;
+    }
+    location ~ \.php$ {
+    root /data/kodexporer;
+    fastcgi_pass 127.0.0.1:9000;
+    fastcgi_index index.php;
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    include fastcgi_params;
+    }
+   }
+   
+   
+   [root@docker kodexporer]# cat init.sh 
+   #!/bin/bash
+   /usr/sbin/php-fpm &
+   nginx -g 'daemon off;'
+   
+   
+   # 下载可道云压缩包
+   [root@docker kodexporer]# curl -o kodexplorer.zip http://static.kodcloud.com/update/download/kodexplorer4.37.zip
+   ```
+
+2. 编写dockerfile文件
+
+   ```sh
+   [root@docker kodexporer]# cat dockerfile-kode 
+   FROM centos:7.9.2009
+   RUN rm -rf /etc/yum.repos.d/*
+   RUN curl -o /etc/yum.repos.d/epel.repo http://mirrors.aliyun.com/repo/epel-7.repo ;curl -o /etc/yum.repos.d/CentOS-Base.repo https://mirrors.aliyun.com/repo/Centos-7.repo
+   RUN yum -y install nginx php-fpm php-cli lrzsz vim unzip php-gd php-mbstring
+   RUN cd /etc/nginx/conf.d/ && rename .conf .off *
+   ADD kodexporer.conf /etc/nginx/conf.d/
+   RUN mkdir /data/kodexporer -p
+   ADD kodexplorer.zip /data/kodexporer/
+   RUN cd /data/kodexporer && unzip kodexplorer.zip && chown -R nginx:nginx /data/
+   RUN sed -ri 's/apache/nginx/g' /etc/php-fpm.d/www.conf
+   ADD init.sh /root/init.sh
+   CMD ["/bin/bash","/root/init.sh"]
+   ```
+
+3. 构建
+
+   ```sh
+   [root@docker kodexporer]# docker build -t kode1:v1 -f dockerfile-kode .
+   ```
+
+4. 启动容器
+
+   ```sh
+   [root@docker kodexporer]# docker run -ti -d --name kkk1 -p 85:80 kode1:v1
+   ```
+
+5. 访问web
+
+   ```sh
+   ip:85
+   ```
+
+   
+
