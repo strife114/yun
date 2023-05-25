@@ -1,5 +1,0 @@
-[mariadb]
-name = MariaDB
-baseurl = https://mirrors.cloud.tencent.com/mariadb/yum/10.4/centos7-amd64
-gpgkey=https://mirrors.cloud.tencent.com/mariadb/yum/RPM-GPG-KEY-MariaDB
-gpgcheck=1
