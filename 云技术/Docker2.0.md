@@ -1,5 +1,67 @@
 
 
+# Docker历史
+
+1. **Docker** 最初是 `dotCloud` 公司创始人 [Solomon Hykes](https://github.com/shykes) 在法国期间发起的一个公司内部项目，它是基于 `dotCloud` 公司多年云服务技术的一次革新，并于 [2013 年 3 月以 Apache 2.0 授权协议开源](https://en.wikipedia.org/wiki/Docker_(software))，主要项目代码在 [GitHub](https://github.com/moby/moby) 上进行维护。`Docker` 项目后来还加入了 Linux 基金会，并成立推动 [开放容器联盟（OCI）](https://opencontainers.org/)。
+
+2. **Docker** 自开源后受到广泛的关注和讨论，至今其 [GitHub 项目](https://github.com/moby/moby) 已经超过 5 万 7 千个星标和一万多个 `fork`。甚至由于 `Docker` 项目的火爆，在 `2013` 年底，[dotCloud 公司决定改名为 Docker](https://www.docker.com/blog/dotcloud-is-becoming-docker-inc/)。`Docker` 最初是在 `Ubuntu 12.04` 上开发实现的；`Red Hat` 则从 `RHEL 6.5` 开始对 `Docker` 进行支持；`Google` 也在其 `PaaS` 产品中广泛应用 `Docker`。
+
+3. **Docker** 使用 `Google` 公司推出的 [Go 语言](https://golang.google.cn/) 进行开发实现，基于 `Linux` 内核的 [cgroup](https://zh.wikipedia.org/wiki/Cgroups)，[namespace](https://en.wikipedia.org/wiki/Linux_namespaces)，以及 [OverlayFS](https://docs.docker.com/storage/storagedriver/overlayfs-driver/) 类的 [Union FS](https://en.wikipedia.org/wiki/Union_mount) 等技术，对进程进行封装隔离，属于 [操作系统层面的虚拟化技术](https://en.wikipedia.org/wiki/Operating-system-level_virtualization)。由于隔离的进程独立于宿主和其它的隔离的进程，因此也称其为容器。最初实现是基于 [LXC](https://linuxcontainers.org/lxc/introduction/)，从 `0.7` 版本以后开始去除 `LXC`，转而使用自行开发的 [libcontainer](https://github.com/docker/libcontainer)，从 `1.11` 版本开始，则进一步演进为使用 [runC](https://github.com/opencontainers/runc) 和 [containerd](https://github.com/containerd/containerd)。
+
+# Docker简介
+
+>1. Dcker是一个开源的容器引擎(容器化平台)，让开发者可以打包他们的应用以及依赖包到一个可移植的容器中，然后发布到任何流行的Linux机器上，也可以实现虚拟化
+>
+>2. 容器是完全使用沙箱机制，相互之间不会有任何接口（类似于iphone的app），几乎没有性能开销，可以很容易在机器和数据中心中运行，最重要的是，他们不依赖于任何语言、框架或包括系统
+>
+>3. 容器使用**基于image镜像**的部署模式，image中包含了运行应用程序所需的一切：代码、运行时、系统工具、系统库和配置文件。无论是单个程序还是多个程序组成的复杂服务，或者分布式系统，都可以使用docker run或docker compose up命令一键部署，省去了大量搭建、配置环境、调试和排查错位的时间
+>
+>4. docker为容器创建了行业标准，使容器成为了软件交付过程中的一种标准化格式，将软件打包成容器镜（image），能够使软件在不同的下运行一致，应用程序可以快速可靠地从一个环境移植到另一个环境，并确保所有的部署目标（例如开发、测试、生产环境）上的都按预期运行，从而避免了“在我的电脑上是好的，在你的电脑上就运行不了”的问题
+>
+>5. 为什么使用Docker？
+>
+> >1. docker容器的启动可以在秒级实现，相比于传统的虚拟机方式快得多
+> >2. 对系统资源的利用率高，一台主机上可以同时运行数千个docker容器
+> >3. 容器除了运行其中应用外，基本不消耗额外的系统资源，使得应用的性能很高，同时系统开销量小
+> >4. 传统虚拟机方式运行10个不同的应用就要起10个虚拟机，而docker只需要启动10个隔离的应用即可
+> >
+>
+>4. docker镜像是一个不包含Linux内核而又精简的Linux操作系统
+>
+>5. docker hub是由docker公司负责维护的公共注册中心，包含大量的容器镜像，docker工具默认从这个公共镜像库下载镜像，网址为：https://hub.docker.com/explore
+>
+>6. 容器与虚拟机的关系
+>
+>  >容器包括应用程序及其所有依赖项。容器运行时，与宿主机共享操作系统内核，容器在linux内核层面（使用 [Cgroups](https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/6/html/Resource_Management_Guide/ch01.html) 和 [namespaces](https://lwn.net/Articles/528078/)）来实现进程间的隔离，容器在主机操作系统上的用户空间中作为独立进程运行。
+>  >
+>  >因此，容器相比于虚拟机更加轻量化，它体积小，启动快，占用资源少，性能好。
+>  >
+>  >虚拟机使用虚拟化技术，应用程序运行在完整的操作系统（OS）之上，因此占用的资源更多，安装更复杂。
+>  >
+>  >但是由于容器与宿主机共享内核，所以在隔离性和安全性方面不如虚拟机。
+>
+>  ![容器与虚拟机关系.png (2320×1384) (gitee.com)](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/web/%E5%AE%B9%E5%99%A8%E4%B8%8E%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%85%B3%E7%B3%BB.png)
+
+## 主要特点
+
+ Docker 的一些主要特点：
+
+1. **轻量级**：由于Docker使用操作系统级别的虚拟化技术，它可以更有效地使用系统资源，减少内存和磁盘空间的使用。因此，Docker显著提高了应用程序的可移植性和部署速度。
+2. **可移植性**：Docker允许你在不同的平台、操作系统和云服务上构建和部署相同的应用程序。这意味着你可以在本地计算机上构建应用程序，并将其部署到生产环境中而无需修改代码或配置。
+3. **环境隔离**：Docker容器提供了一个隔离环境，使应用程序能够独立运行和交互，并避免与其它应用程序冲突或影响。这种隔离性还提供了更好的安全性和可靠性，使应用程序更加健壮和安全。
+4. **开放性**：Docker使用开放的标准和API，这意味着你可以自由地选择不同的工具和技术来构建、部署和管理Docker容器。此外，Docker社区提供了大量的插件和扩展，可以进一步增强Docker的功能和灵活性。
+5. **可扩展性**：Docker容器可以很容易地在不同的环境中进行部署和扩展，例如在云服务上自动扩展容器数量。Docker还提供了内置的集群管理工具，使容器化的应用程序能够轻松地在多个节点上运行和通信。
+
+总之，Docker是一种流行的容器化技术，它提供了许多功能和工具，可以帮助开发者更轻松地构建、部署和管理应用程序，并提高系统的可移植性、环境隔离性、开放性和可扩展性。
+
+
+
+![容器镜像](https://gitee.com/fan-dongyuan/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/web/%E5%AE%B9%E5%99%A8%E9%95%9C%E5%83%8F)
+
+
+
+
+
 # docker官网
 
 ```sh
