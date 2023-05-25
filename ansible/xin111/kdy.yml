@@ -1,0 +1,116 @@
+---
+- name: Install KodCloud
+  hosts: testhost
+  become: yes
+
+  tasks:
+    - name: copy nginx.repo
+      copy:
+        src: /fdy/nginx.repo
+        dest: /etc/yum.repos.d/nginx.repo
+    - name: copy mysql.repo
+      copy:
+        src: /fdy/MariaDB.repo
+        dest: /etc/yum.repos.d/MariaDB.repo
+    - name: install rpm
+      shell: yum install -y https://mirrors.tuna.tsinghua.edu.cn/remi/enterprise/remi-release-7.rpm
+    - name: Install required packages
+      yum: name={{ item }} state=installed
+      with_items:
+        - wget
+        - unzip
+        - nginx
+        - php74-php-fpm
+        - php74-php-mysqlnd
+        - php74-php-pecl-redis5
+        - php74-php-xml
+        - php74-php-gd
+        - php74-php-mbstring
+        - MariaDB-client
+        - MariaDB-server
+        - epel-release
+        - redis
+    - name: shouquan
+      copy:
+        src: /fdy/mysql.sh
+        dest: /root/mysql.sh
+    - name: qidong
+      systemd:
+        name: mariadb
+        enabled: yes
+        state: started
+    - name:  shouquan
+      shell: sh -x /root/mysql.sh 
+      ignore_errors: yes
+      
+    - name: peizhiredis
+      copy:
+        src: /fdy/redis.conf
+        dest: /etc/redis.conf
+    - name: start redis
+      systemd:
+        name: redis
+        enabled: yes
+        state: started
+
+    - name: Start and enable nginx service
+      systemd:
+        name: nginx
+        enabled: yes
+        state: started
+    - name: start php
+      systemd:
+        name: php74-php-fpm
+        enabled: yes
+        state: started
+    - name: default
+      copy:
+        src: /fdy/default.conf
+        dest: /etc/nginx/conf.d/default.conf
+      notify: Restart nginx
+    - name: Configure virtual host
+      template:
+        src: /fdy/kodbox.conf.j2
+        dest: /etc/nginx/conf.d/kodbox.conf
+      notify: Restart nginx
+    - name: xiugai www.conf
+      copy:
+        src: /fdy/www.conf
+        dest: /etc/opt/remi/php74/php-fpm.d/www.conf
+      notify: Restart php
+
+    - name: rm nginx
+      shell: rm -rf /usr/share/nginx/html/*
+    - name: copy kodbox.zip
+      unarchive:
+        src: /fdy/kodbox.1.31.zip
+        dest: /usr/share/nginx/html/
+    - name: Set permissions on KodCloud files
+      file:
+        path: /usr/share/nginx/html/
+        state: directory
+        mode: 0777
+        recurse: yes
+        owner: nginx
+        group: nginx
+
+  handlers:
+    - name: Restart nginx
+      systemd:
+        name: nginx
+        state: restarted
+  handlers:
+    - name: Restart php
+      systemd:
+        name: php74-php-fpm
+        state: restarted
+  handlers:
+    - name: Restart mariadb
+      systemd:
+        name: mariadb
+        state: restarted
+  handlers:
+    - name: Restart redis
+      systemd:
+        name: redis
+        state: restarted
