@@ -81,11 +81,11 @@
 1. Jenkins是一个广泛用于持续集成的可视化web自动化工具，Jenkins可以很友好的支持各种语言的项目构建，也可以完全兼容ant maven、gradle等多种第三方构建工具，同时跟svn git能无缝集成，也支持直接与知名源代码托管网站，比如 github、bitbucket直接集成，而且插件众多，在这么多年的"技术积累之后，在国内大部分公司都有使用Jenkins。
 2. Jenkins是哟个开源软件项目，是基于java开发的一种持续集成工具，主要做的事情就是从git中拉取代码，根据配置信息打包；把打好的包传输到目标服务器，并可以执行一些shell脚本，使项目打包发布一键完成
 3. 官网：https://www.jenkins.io/
-![](https://strife.oratun.cn/%E5%9B%BE%E5%BA%8A/jenkins/jenkins%E8%A7%84%E5%88%92.png)
+   ![](https://strife.oratun.cn/%E5%9B%BE%E5%BA%8A/jenkins/jenkins%E8%A7%84%E5%88%92.png)
 
-1. 首先，开发人员每天进行代码提交，提交到git仓库
-2. 然后，jenkins作为持续集成工具，使用Git工具到Git仓库拉取代码到集成服务器，再配合JDK、Maven等软件完成代码编译，代码测试与审查，测试，打包等工作，在这个过程中每一步出错，都重新再执行一次整个流程。
-3. 最后，Jenkins把生成的jar或war包分发到测试服务器或者生产服务器，测试人员或用户就可以访问应用。
+4. 首先，开发人员每天进行代码提交，提交到git仓库
+5. 然后，jenkins作为持续集成工具，使用Git工具到Git仓库拉取代码到集成服务器，再配合JDK、Maven等软件完成代码编译，代码测试与审查，测试，打包等工作，在这个过程中每一步出错，都重新再执行一次整个流程。
+6. 最后，Jenkins把生成的jar或war包分发到测试服务器或者生产服务器，测试人员或用户就可以访问应用。
 
 
 
@@ -104,11 +104,11 @@ Github服务器在别人手上，所有的代码需要上传到别人的服务�
 
 # 实验环境
 
-| IP            | 主机    | 节点规划                   |
-| ------------- | ------- | -------------------------- |
-| 192.168.6.4   | jenkins | Jenkins服务器              |
-| 192.168.6.11  | gitlab  | Gitlab仓库服务器（12.4.2） |
-| 192.168.6.100 | tomcat  | Tomcat测试机               |
+| IP              | 主机    | 节点规划                   |
+| --------------- | ------- | -------------------------- |
+| 192.168.223.101 | jenkins | Jenkins服务器              |
+| 192.168.223.100 | gitlab  | Gitlab仓库服务器（12.4.2） |
+| 192.168.223.200 | tomcat  | Tomcat测试机               |
 
 
 
@@ -213,7 +213,7 @@ irb(main):013:0> user.unlock_access!
 irb(main):014:0>
 ```
 
-### Gitlab12.4.2
+### Gitlab12.10.14
 
 1. 下载rpm包
 
@@ -228,15 +228,147 @@ irb(main):014:0>
    [root@gitlab ~]# yum install -y policycoreutils-python
    ```
 
-   
-
 3. 安装rpm
 
    ```sh
-   [root@gitlab ~]# rpm -ivh gitlab-ce-12.4.2-ce.0.el6.x86_64.rpm
+   [root@gitlab ~]# rpm -ivh gitlab-ce-12.10.14-ce.0.el7.x86_64.rpm
+   ```
+
+4. 下载git工具
+
+   ```sh
+   [root@gitlab ~]# yum install -y git
    ```
 
    
 
 ## Gitlab配置
+
+1. 修改配置文件
+
+   ```sh
+   [root@gitlab ~]# vim /etc/gitlab/gitlab.rb
+   # 修改
+   external_url 'http://192.168.223.100:82'
+   # 取消注释并修改
+   nginx['listen_port'] = 82
+   # 取消注释
+   unicorn['worker_processes'] = 2
+   ```
+
+2. 重载配置
+
+   ```sh
+   [root@gitlab ~]# gitlab-ctl reconfigure
+   ```
+
+3. 重启服务并设置自启
+
+   ```sh
+   [root@gitlab ~]# gitlab-ctl restart #重启服务
+   
+   
+   #开机自启
+   [root@gitlab ~]# systemctl enable gitlab-runsvdir.service
+   ```
+
+4. 浏览器访问
+
+   ```
+   192.168.223.100:82
+   
+   # 设置新密码
+   
+   # 用户：root
+   # 密码：新密码
+   
+   ```
+
+5. 创建用户组
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/gitlab1.png)
+
+6. 在用户组中创建项目
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/gitlab2.png)
+
+## 代码拉取和上传
+
+1. 配置用户和邮箱
+
+   ```sh
+   [root@gitlab ~]# git config --global user.name "root"
+   [root@gitlab ~]# git config --global user.email 1272776782@qq.com
+   ```
+
+2. 拉取项目
+
+   ```sh
+   [root@gitlab ~]# git clone http://192.168.223.100:82/test/web-test.git
+   
+   [root@gitlab ~]# cd web-test
+   [root@gitlab web-test]# ls
+   README.md
+   ```
+
+3. 推送项目
+
+   ```sh
+   # 上传一个文档到此目录
+   [root@gitlab web-test]# ls
+   README.md  私有云部署.md
+   
+   # 代码上传工作区
+   [root@gitlab web-test]# git add .
+   # 提交代码申明
+   [root@gitlab web-test]# git commit -am "11"
+   # 推送代码
+   [root@gitlab web-test]# git push origin master
+   ```
+
+4. 创建用户
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/gitlab3.png)
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/gitlab4.png)
+
+5. 修改密码
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/gitlab5.png)
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/gitlab6.png)
+
+6. 添加用户到组
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/gitlabzu1.png)
+
+7. 使用新用户登录
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/gitlabzu2.png)
+
+## Jenkins安装
+
+1. 安装依赖包和epel源
+
+   ```sh
+   [root@jenkins ~]# yum install git epel-release daemonize java-1.8.0-openjdk* -y
+   ```
+
+2. 安装rpm包（rpm包自行下载版本）
+
+   ```sh
+   [root@jenkins ~]# rpm -ivh jenkins-2.332-1.1.noarch.rpm
+   
+   
+   # 注意
+   1. 出现warning: jenkins-2.332-1.1.noarch.rpm: Header V4 RSA/SHA512 Signature, key ID 45f2c3d5: NOKEY
+   error: Failed dependencies:
+   	daemonize is needed by jenkins-2.332-1.1.noarch
+   	
+   # 解决方法
+   1. 下载daemonize
+      yum install -y daemonize
+   ```
+
+   
 
