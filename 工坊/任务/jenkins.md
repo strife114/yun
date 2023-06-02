@@ -346,6 +346,90 @@ irb(main):014:0>
 
    ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/gitlabzu2.png)
 
+
+
+## Gitlab全局备份
+
+1. 修改gitlab配置文件
+
+   ```sh
+   [root@gitlab ~]# vim /etc/gitlab/gitlab.rb 
+   # 搜索Backup关键词可到达
+   
+   gitlab_rails['manage_backup_path'] = true
+   gitlab_rails['backup_path'] = "/var/opt/gitlab/backups"
+   
+   ###! Docs: https://docs.gitlab.com/ee/raketasks/backup_restore.html#backup-archive-permissions
+   gitlab_rails['backup_archive_permissions'] = 0644
+   
+   # gitlab_rails['backup_pg_schema'] = 'public'
+   
+   ###! The duration in seconds to keep backups before they are allowed to be deleted
+   gitlab_rails['backup_keep_time'] = 7776000
+   
+   ```
+
+2. 全局备份
+
+   ```sh
+   [root@gitlab ~]# gitlab-rake gitlab:backup:create
+   
+   
+   # 查看归档包
+   [root@gitlab backups]# pwd
+   /var/opt/gitlab/backups
+   [root@gitlab backups]# ls
+   1685666715_2023_06_01_12.10.14_gitlab_backup.tar
+   ```
+
+3. 删除本机上的所有项目
+
+4. 恢复
+
+   ```sh
+   [root@gitlab ~]# gitlab-rake gitlab:backup:restore BACKUP=1685666715_2023_06_01_12.10.14
+   
+   
+   
+   # 注意
+   1. gitlab-rake gitlab:backup:restore BACKUP=数据编号（绝对路径）有可能需要绝对路径，一般来说是配置文件设置了自己想要的路径后才会需要绝对路径
+   2. 恢复的时候可能需要关闭数据库进程
+   
+   # 解决方法
+   2. gitlab-ctl stop unicorn
+      gitlab-ctl stop sidekiq
+   ```
+
+5. 补充
+
+   ```sh
+   [root@gitlab backups]# ls
+   1685666715_2023_06_01_12.10.14_gitlab_backup.tar  db            tmp
+   artifacts.tar.gz                                  lfs.tar.gz    uploads.tar.gz
+   backup_information.yml                            pages.tar.gz
+   builds.tar.gz                                     repositories
+   
+   
+   # 全量备份时考虑到有些内容不需要备份，否则备份文件过大，拷贝起来比较缓慢，筛选信息，首先看一下备份文件说明：
+   db                       # 数据库备份：主要为PostgreSQL数据库数据内容
+   uploads                  # 附件数据备份
+   repositories             # Git仓库数据备份
+   builds                   # CI 作业输入日志等数据备份
+   artifacts                # CI 作业工件数据备份（artifacts用于指定在job 成功或失败 时应附加到作业的文件和目录的列表。）
+   lfs                      # LFS对象数据备份
+   registry                 # 容器镜像备份
+   pages                    # GitLab Pages content，页面内容数据备份
+   # 这些文件会在恢复后在备份目录产生
+   ```
+
+   
+
+
+
+
+
+
+
 ## Jenkins安装
 
 1. 安装依赖包和epel源
@@ -370,5 +454,109 @@ irb(main):014:0>
       yum install -y daemonize
    ```
 
-   
+3. 修改配置文件
+
+   ```sh
+   [root@jenkins ~]# vim /etc/sysconfig/jenkins
+   JENKINS_PORT="8080" #修改默认端口，根据所需修改
+   ```
+
+4. 启动服务并设置自启
+
+   ```sh
+   [root@jenkins ~]# systemctl start jenkins
+   [root@jenkins ~]# systemctl enable jenkins
+   ```
+
+5. 浏览器访问ip:8080
+
+6. 输入初始密码
+
+   ```sh
+   [root@jenkins ~]# cat /var/lib/jenkins/secrets/initialAdminPassword 
+   81f8c8c820fc42f891bc5e55af261ccd
+   ```
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/jenkins1.png)
+
+7. 选择自定义插件
+
+   选择完后取消所有插件选择
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/jenkins2.png)
+
+8. 选择直接使用admin用户
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/jenkins3.png)
+
+9. 其他默认即可
+
+10. 设置中文汉化
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/jenkins4.png)
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/jenkins5.png)
+
+11. 重启jenkins服务（安装插件后有一个复选框可以重启jenkins）
+
+12. 使用admin用户进入（密码为初始密码）
+
+13. 修改admin密码
+
+    ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/jenkins6.png)
+
+
+
+## jenkins配置钉钉告警
+
+1. 在钉钉上创建一个群，然后创建一个机器人，需要几个关键词
+
+   ```
+   # web链接
+   Webhook：
+   # 为了安全使用
+   加签
+   ```
+
+2. 添加钉钉插件
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/jenkinsdd1.png)
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/jenkinsdd2.png)
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/jenkinsdd3.png)
+
+3. 配置钉钉
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/jenkinsdd5.png)
+
+   关键配置：
+
+   名称：jenkins
+
+   webhook：**********************
+
+   加密：（加签）
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/jenkinsdd4.png)
+
+4. 测试钉钉告警
+
+   插件一个名称构建一个自由风格的软件项目
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/jenkinsdd6.png)
+
+   选择钉钉机器人jenkins
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/jenkinsdd7.png)
+
+   通知人选择所有并保存配置
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/jenkinsdd8.png)
+
+   构建工程触发告警
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/jenkinsdd9.png)
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/jenkinsdd10.png)
 
