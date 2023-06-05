@@ -547,7 +547,21 @@ Dir         Dockerfile所在目录
    wordpress:6.2.1                                是容器镜像的名称，代表了要启动的应用程序。如果该镜像不存在，则会先从 Docker Hub 中下载该镜像
    ```
 
-5. 浏览器访问
+5. 修改容器配置文件
+
+   ```sh
+   [root@docker ~]# cd wordpress
+   [root@docker wordpress]# vim wp-config.php
+   define( 'DB_NAME', getenv_docker('WORDPRESS_DB_NAME', 'wordpress') );
+   
+   /** Database username */
+   define( 'DB_USER', getenv_docker('WORDPRESS_DB_USER', 'root') );
+   
+   /** Database password */
+   define( 'DB_PASSWORD', getenv_docker('WORDPRESS_DB_PASSWORD', '123456') );
+   ```
+
+6. 浏览器访问
 
    ```sh
    ip:8080
