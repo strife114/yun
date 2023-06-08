@@ -81,11 +81,11 @@
 1. Jenkins是一个广泛用于持续集成的可视化web自动化工具，Jenkins可以很友好的支持各种语言的项目构建，也可以完全兼容ant maven、gradle等多种第三方构建工具，同时跟svn git能无缝集成，也支持直接与知名源代码托管网站，比如 github、bitbucket直接集成，而且插件众多，在这么多年的"技术积累之后，在国内大部分公司都有使用Jenkins。
 2. Jenkins是哟个开源软件项目，是基于java开发的一种持续集成工具，主要做的事情就是从git中拉取代码，根据配置信息打包；把打好的包传输到目标服务器，并可以执行一些shell脚本，使项目打包发布一键完成
 3. 官网：https://www.jenkins.io/
-![](https://strife.oratun.cn/%E5%9B%BE%E5%BA%8A/jenkins/jenkins%E8%A7%84%E5%88%92.png)
+   ![](https://strife.oratun.cn/%E5%9B%BE%E5%BA%8A/jenkins/jenkins%E8%A7%84%E5%88%92.png)
 
-1. 首先，开发人员每天进行代码提交，提交到git仓库
-2. 然后，jenkins作为持续集成工具，使用Git工具到Git仓库拉取代码到集成服务器，再配合JDK、Maven等软件完成代码编译，代码测试与审查，测试，打包等工作，在这个过程中每一步出错，都重新再执行一次整个流程。
-3. 最后，Jenkins把生成的jar或war包分发到测试服务器或者生产服务器，测试人员或用户就可以访问应用。
+4. 首先，开发人员每天进行代码提交，提交到git仓库
+5. 然后，jenkins作为持续集成工具，使用Git工具到Git仓库拉取代码到集成服务器，再配合JDK、Maven等软件完成代码编译，代码测试与审查，测试，打包等工作，在这个过程中每一步出错，都重新再执行一次整个流程。
+6. 最后，Jenkins把生成的jar或war包分发到测试服务器或者生产服务器，测试人员或用户就可以访问应用。
 
 
 
@@ -774,3 +774,115 @@ irb(main):014:0>
 9. 查看控制台输出
 
    ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/ceshi1.png)
+
+
+
+
+
+
+
+
+
+
+
+# 自动化部署vue项目（tomcat环境）
+
+1. 下载所有插件、组件、依赖项等
+
+   ```sh
+   # web页面下载插件
+   1. NodeJS Plugin
+   2. Publish over SSH
+   3. SSH Server
+   
+   
+   # 下载gcc、make、bison
+   [root@jenkins ~]# yum install -y centos-release-scl
+   [root@jenkins ~]# yum install -y devtoolset-8-gcc*
+   [root@jenkins ~]# yum install -y gcc
+   [root@jenkins ~]# wget http://ftp.gnu.org/gnu/make/make-4.3.tar.gz
+   [root@jenkins ~]# tar -xzvf make-4.3.tar.gz 
+   [root@jenkins ~]# cd make-4.3
+   [root@jenkins ~]# ./configure --prefix=/usr/local/make
+   [root@jenkins ~]# make && make install
+   [root@jenkins ~]# cd /usr/bin/
+   [root@jenkins ~]# mv make make.bak
+   [root@jenkins ~]# ln -sv /usr/local/make/bin/make /usr/bin/make
+   [root@jenkins ~]# yum install -y bison
+   [root@jenkins ~]# gcc --version
+   [root@jenkins ~]# make --version
+   [root@jenkins ~]# bison --version
+   
+   
+   # 注意
+   1. 本实验是基于自动化部署tomcat来进行
+   ```
+
+2. gitlab上传项目
+
+   ```sh
+   [root@gitlab vue-master]# https://strife.oratun.cn/yun/%E6%BA%90%E7%A0%81%E5%8C%85/vue-master.tar.gz
+   [root@gitlab vue-master]# git init
+   [root@gitlab vue-master]# git remote add origin git@192.168.223.100:root/vue.git
+   [root@gitlab vue-master]# git add .
+   [root@gitlab vue-master]# git commit -am "1"
+   [root@gitlab vue-master]# git push origin master
+   ```
+
+3. 配置ssh目标主机
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/vue1.png)
+
+4. 安装NodeJS16.0.0
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/vue2.png)
+
+5. 构建任务
+
+   新建任务-----》构建一个自由风格的软件项目（命名11）
+
+6. 配置git
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/vue3.png)
+
+7. 设置构建环境
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/vue4.png)
+
+8. 设置构建内容
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/vue5.png)
+
+9. 设置构建后执行shell
+
+   ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/vue6.png)
+
+10. 目标主机查看
+
+    ```sh
+    [root@tomcat wxsweb]# ls
+    index.html  static
+    [root@tomcat wxsweb]# pwd
+    /usr/local/tomcat/webapps/wxsweb
+    [root@tomcat wxsweb]# cat index.html 
+    <!DOCTYPE html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>experiment</title><link rel=stylesheet href=/static/css/font-awesome/font-awesome.min.css><link rel=stylesheet href=/static/css/bootstrap/bootstrap.min.css><link rel=stylesheet href=/static/css/styles.css><link rel=stylesheet href=/static/css/modal.css><link href=/static/css/app.3de0a3d70fd76cd4a366ec80d3b59753.css rel=stylesheet></head><body><div id=app></div><script type=text/javascript src=/static/js/manifest.2ae2e69a05c33dfc65f8.js></script><script type=text/javascript src=/static/js/vendor.2bb7f83c017306572689.js></script><script type=text/javascript src=/static/js/app.64ac9fa38c29189d5a2b.js></script></body><script src=https://cdn.staticfile.org/jquery/2.1.1/jquery.min.js></script><script src=https://cdn.staticfile.org/twitter-bootstrap/3.3.7/js/bootstrap.min.js></script><script src=https://cdnjs.cloudflare.com/ajax/libs/video.js/7.3.0/video.min.js></script><link href=https://cdnjs.cloudflare.com/ajax/libs/video.js/7.3.0/video-js.min.css rel=stylesheet><script>window.onload = function () {
+        $('#videoModal').on('hidden.bs.modal', function () {
+          console.log('模态框关闭...')
+          let videoPlayer = $('#videoPlayer')[0]
+          // console.log(videoPlayer)
+          // console.log($('#videoPlayer'))
+          videoPlayer.controls = true;
+          if (!videoPlayer.paused) {
+            videoPlayer.pause();
+          }
+        })
+      }</script></html>
+      
+      
+      
+    # 浏览器访问192.168.223.3:8080/wxsweb/index.html
+    # 因为没有内容，所有什么都不会显示
+    ```
+
+    
+
