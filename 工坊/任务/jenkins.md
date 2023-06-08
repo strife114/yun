@@ -671,10 +671,26 @@ irb(main):014:0>
    export JRE_HOME="$JAVA_HOME/jre"
    export PATH=$PATH:$JAVA_HOME/bin:$JRE_HOME/bin
    
+   [root@tomcat ~]# mkdir /usr/local/tomcat
    # 本文档中tomcat部署并没有用到jre，这里的java也没有jre的路径，所以环境变量可不配置jre的环境
    ```
 
-4. 配置全局工具
+4. 配置启动脚本
+
+   ```sh
+   [root@jenkins fdy]# cat tomcat.sh 
+   #!/bin/bash
+   # 后面因为自动化项目名的不同，tomcats1也会相应更改
+   rsync -avzh /var/lib/jenkins/workspace/tomcats1/*  root@192.168.223.3:/usr/local/tomcat/
+   ssh root@192.168.223.3 "/usr/local/tomcat/bin/shutdown.sh"
+   sleep 3
+   ssh root@192.168.223.3 "/usr/local/tomcat/bin/startup.sh"
+   
+   ```
+
+   
+
+5. 配置全局工具
 
    Dashboard---》系统管理----》全局工具配置
 
@@ -694,7 +710,7 @@ irb(main):014:0>
 
    ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/goju4.png)
 
-5. gitlab上传项目
+6. gitlab上传项目
 
    ```sh
    [root@gitlab fdy]# wget https://strife.oratun.cn/yun/%E6%BA%90%E7%A0%81%E5%8C%85/tomcats1-master.zip
@@ -721,7 +737,7 @@ irb(main):014:0>
    1. 空目录logs无法上传，因为git推送无法推送空目录，直接在gitlab的项目上主页面点击+号创建目录即可
    ```
 
-6. 开始创建maven项目
+7. 开始创建maven项目
 
    ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/maven1.png)
 
@@ -751,10 +767,10 @@ irb(main):014:0>
 
    ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/peizhi7.png)
 
-7. 执行构建
+8. 执行构建
 
    ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/gojian1.png)
 
-8. 查看控制台输出
+9. 查看控制台输出
 
    ![](https://gitee.com/Strife-Dispute/ty-gallery/raw/master/%E5%B7%A5%E5%9D%8A%E5%9B%BE/jenkins/ceshi1.png)
