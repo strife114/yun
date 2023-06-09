@@ -591,7 +591,7 @@ irb(main):014:0>
    jenkins:x:997:995:Jenkins Automation Server:/var/lib/jenkins:/bin/bash
    [root@jenkins ~]# su jenkins
    bash-4.2$ ssh-keygen
-   bash-4.2$ ssh-copy-id 192.168.223.3
+   bash-4.2$ ssh-copy-id root@192.168.223.3
    
    # 将jenkins和gitlab互信起来
    [root@jenkins ~]# cd .ssh/
@@ -859,30 +859,30 @@ irb(main):014:0>
 
 10. 目标主机查看
 
-    ```sh
-    [root@tomcat wxsweb]# ls
-    index.html  static
-    [root@tomcat wxsweb]# pwd
-    /usr/local/tomcat/webapps/wxsweb
-    [root@tomcat wxsweb]# cat index.html 
-    <!DOCTYPE html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>experiment</title><link rel=stylesheet href=/static/css/font-awesome/font-awesome.min.css><link rel=stylesheet href=/static/css/bootstrap/bootstrap.min.css><link rel=stylesheet href=/static/css/styles.css><link rel=stylesheet href=/static/css/modal.css><link href=/static/css/app.3de0a3d70fd76cd4a366ec80d3b59753.css rel=stylesheet></head><body><div id=app></div><script type=text/javascript src=/static/js/manifest.2ae2e69a05c33dfc65f8.js></script><script type=text/javascript src=/static/js/vendor.2bb7f83c017306572689.js></script><script type=text/javascript src=/static/js/app.64ac9fa38c29189d5a2b.js></script></body><script src=https://cdn.staticfile.org/jquery/2.1.1/jquery.min.js></script><script src=https://cdn.staticfile.org/twitter-bootstrap/3.3.7/js/bootstrap.min.js></script><script src=https://cdnjs.cloudflare.com/ajax/libs/video.js/7.3.0/video.min.js></script><link href=https://cdnjs.cloudflare.com/ajax/libs/video.js/7.3.0/video-js.min.css rel=stylesheet><script>window.onload = function () {
-        $('#videoModal').on('hidden.bs.modal', function () {
-          console.log('模态框关闭...')
-          let videoPlayer = $('#videoPlayer')[0]
-          // console.log(videoPlayer)
-          // console.log($('#videoPlayer'))
-          videoPlayer.controls = true;
-          if (!videoPlayer.paused) {
-            videoPlayer.pause();
-          }
-        })
-      }</script></html>
-      
-      
-      
-    # 浏览器访问192.168.223.3:8080/wxsweb/index.html
-    # 因为没有内容，所有什么都不会显示
-    ```
+   ```sh
+[root@tomcat wxsweb]# ls
+index.html  static
+[root@tomcat wxsweb]# pwd
+/usr/local/tomcat/webapps/wxsweb
+[root@tomcat wxsweb]# cat index.html 
+<!DOCTYPE html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>experiment</title><link rel=stylesheet href=/static/css/font-awesome/font-awesome.min.css><link rel=stylesheet href=/static/css/bootstrap/bootstrap.min.css><link rel=stylesheet href=/static/css/styles.css><link rel=stylesheet href=/static/css/modal.css><link href=/static/css/app.3de0a3d70fd76cd4a366ec80d3b59753.css rel=stylesheet></head><body><div id=app></div><script type=text/javascript src=/static/js/manifest.2ae2e69a05c33dfc65f8.js></script><script type=text/javascript src=/static/js/vendor.2bb7f83c017306572689.js></script><script type=text/javascript src=/static/js/app.64ac9fa38c29189d5a2b.js></script></body><script src=https://cdn.staticfile.org/jquery/2.1.1/jquery.min.js></script><script src=https://cdn.staticfile.org/twitter-bootstrap/3.3.7/js/bootstrap.min.js></script><script src=https://cdnjs.cloudflare.com/ajax/libs/video.js/7.3.0/video.min.js></script><link href=https://cdnjs.cloudflare.com/ajax/libs/video.js/7.3.0/video-js.min.css rel=stylesheet><script>window.onload = function () {
+    $('#videoModal').on('hidden.bs.modal', function () {
+      console.log('模态框关闭...')
+      let videoPlayer = $('#videoPlayer')[0]
+      // console.log(videoPlayer)
+      // console.log($('#videoPlayer'))
+      videoPlayer.controls = true;
+      if (!videoPlayer.paused) {
+        videoPlayer.pause();
+      }
+    })
+  }</script></html>
+  
+  
+  
+# 浏览器访问192.168.223.3:8080/wxsweb/index.html
+# 因为没有内容，所有什么都不会显示
+   ```
 
-    
+   
 
