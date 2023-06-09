@@ -488,7 +488,7 @@ Dir         Dockerfile所在目录
 1. 在已有docker的环境下拉去mysql:5.7的镜像
 
    ```sh
-   [root@docker ~]# dokcer pull mysql:5.7
+   [root@docker ~]# docker pull mysql:5.7
    ```
 
 2. 启动mysql镜像构建容器
@@ -516,7 +516,7 @@ Dir         Dockerfile所在目录
 3. 拉取wordpress:6.2.1镜像
 
    ```sh
-   [root@docker ~]# dokcer pull wordpress:6.2.1
+   [root@docker ~]# docker pull wordpress:6.2.1
    ```
 
    
@@ -773,7 +773,7 @@ Dir         Dockerfile所在目录
 4. 执行构建
 
    ```sh
-   [root@docker ~]# dokcer build -t wordpress2:6.2.2 -f dockerfile-wordpress .
+   [root@docker ~]# docker build -t wordpress2:6.2.2 -f dockerfile-wordpress .
    ```
 
 5. 使用构建的wordpress2来构建容器
