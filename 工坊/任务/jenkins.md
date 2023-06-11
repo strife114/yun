@@ -588,6 +588,7 @@ irb(main):014:0>
    
    # 修改jenkins用户权限
    # 修改为/bin/bash
+   [root@jenkins ~]# vim /etc/passwd
    jenkins:x:997:995:Jenkins Automation Server:/var/lib/jenkins:/bin/bash
    [root@jenkins ~]# su jenkins
    bash-4.2$ ssh-keygen
