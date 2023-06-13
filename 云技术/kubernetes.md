@@ -468,7 +468,11 @@ kubectl describe pods [rc-name]
 # 查看pod的详细关联信息（查看pod属于哪个node）
 kubectl get pod -o wide
 
+# 擦看pod中容器的版本信息
+kubectl get pod -o=jsonpath='{range .items[*]}{"\n"}{.metadata.name}{": "}{range .spec.containers[*]}{@.name}{" - "}{@.image}{end}{end}'
 
+# 查看特定命名空间中的pod版本信息
+kubectl get pod -n default -o=jsonpath='{range .items[*]}{"\n"}{.metadata.name}{": "}{range .spec.containers[*]}{@.name}{" - "}{@.image}{end}{end}'
 
 
 
@@ -493,6 +497,12 @@ kubectl delete -f pod.yaml
 # 删除所有包含某个label的pod和service
 kubectl delete pods,service -l name=[label-name]
 
+# 删除一个pod
+kubectl delete pod <pod-name>
+
+# 根据标签删除pod
+kubectl delete pods -l app=myapp
+
 # 删除所有pod
 kubectl delete pods --all
 ```
@@ -516,13 +526,13 @@ kubectl scale rc redis --replicas=3
 
 
 # 滚动升级
- kubectl rolling-update redis -f redis-rc.update.yaml
- kubeclt rolling-update redis --image=redis-2.0
- 
- 
+kubectl rolling-update redis -f redis-rc.update.yaml
+kubeclt rolling-update redis --image=redis-2.0
+
+
+
 # 运行nginx容器
 kubectl run nginx --image=10.18.4.10/library/nginx:latest
-
 # 测试nginx应用
 kubectl get svc
 nginx           ClusterIP     10.100.220.6      <none>        80/TCP    9s
@@ -539,6 +549,33 @@ curl 10.100.220.6:80
 # 查看 pod、Service               ：kubectl -n 命名空间 get pod,svc -o wide
 ```
 
+## Demployment操作
+
+```sh
+# 查看指定pod的版本信息
+kubectl exec -it nginx-app-node1-67d4ff55ff-5lxzp -- nginx -V
+# 查看资源部署对象nginx-app-node1的历史版本
+kubectl rollout history deployment nginx-app-node1
+#  指定版本回滚
+kubectl rollout undo deployment nginx-app-node1 --to-revision 1
+# 回滚到上一个版本
+kubectl rollout undo deployment nginx-app-node1
+# 更新资源部署对象nginx-app-node1的版本
+kubectl set image deployment/nginx-app-node1 nginx=nginx:1.19.1 --record
+# 暂停更新
+kubectl rollout pause deployment nginx-app-node1
+# 继续更新
+kubectl rollout  resume deployment nginx-app-node1
+
+# 查看指定deployment的pod基本信息
+[root@master ~]# kubectl get deployments nginx-app-node1 -o wide
+NAME              READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES         SELECTOR
+nginx-app-node1   4/4     4            4           97m   nginx        nginx:latest   app=nginx
+
+```
+
+
+
 ## node隔离和恢复
 
 ```sh
@@ -552,9 +589,30 @@ kubectl get nodes
 kubectl uncordon node
 ```
 
-## 动态扩容和缩容
+## 扩容和缩容
+
+### 简介
+
+1. 在实际生产系统中，经常会遇到某个服务需要扩容的场景，可能会遇到由于资源紧张或者工作负载降低而需要减少服务实例数量的场景。可以利用Deployment的[Scale](https://so.csdn.net/so/search?q=Scale&spm=1001.2101.3001.7020)机制来完成这些工作。
+
+2. K8s对Pod的扩容和缩容操作提供了手动和自动两种模式。
+
+   **手动模式**通过执行kubectl scale命令对一个Deployment进行Pod副本数量的设置，可一键完成。自动模式则需要用户根据某个[性能指标](https://so.csdn.net/so/search?q=性能指标&spm=1001.2101.3001.7020)或者自定义业务指标，并指定Pod副本数量的范围，系统将自动在这个范围内根据性能指标的变化进行调整。
+
+   **自动模式**通过Horizontal Pod Autoscaler(HPA)的控制器，用于实现基于CPU、内存利用率以及其他应用程序提供的自定义度量指标来执行自动扩缩
+
+3. Pod 水平自动扩缩特性由 Kubernetes API 资源和控制器实现。资源决定了控制器的行为。控制器会周期性的调整副本控制器或 Deployment 中的副本数量，以使得 Pod 的平均 CPU 利用率与用户所设定的目标值匹配。
 
 ```sh
+# 手动
+# 通过根yaml文件修改
+sed -i 's/replicas: 4/replicas: 2/g' nginx-deployment.yaml 
+kubectl apply -f nginx-deployment.yaml 
+
+# 在线修改
+kubectl edit deployments.apps nginx-app-node1
+
+# 通过命令扩缩容
 # 将Nginx Deployment控制的Pod副本数量从初始的1更新为5
 kubectl scale deployment nginx --replicas=5
 
@@ -562,6 +620,10 @@ kubectl scale deployment nginx --replicas=5
 kubectl get pods
 
 # 将--replicas设置为比当前Pod副本数量更小的数字，系统将会“杀掉”一些运行中的Pod，即可实现应用集群缩容
+
+
+# 自动
+看下方实验项目之扩容和缩容（自动扩缩容）
 ```
 
 ## 将pod调度到指定node
@@ -610,7 +672,7 @@ kubectl create -f my-service.yaml
 
 1. 编写yaml文件
 
-   ```sh
+   ```yaml
    # vim httpd.conf
    apiVersion: apps/v1beta1
    kind: Deployment
@@ -649,7 +711,7 @@ kubectl create -f my-service.yaml
 
 4. 修改yaml文件
 
-   ```sh
+   ```yaml
    apiVersion: apps/v1beta1
    kind: Deployment
    metadata:
@@ -1104,6 +1166,1043 @@ free -h
 
    ```sh
    192.168.6.4:30080
+   ```
+
+   
+
+
+
+## Node的隔离与恢复
+
+### 隔离
+
+```sh
+[root@master ~]# kubectl cordon node2
+node/node2 cordoned
+[root@master ~]# kubectl get node
+NAME     STATUS                     ROLES                  AGE   VERSION
+master   Ready                      control-plane,master   46m   v1.20.4
+node1    Ready                      <none>                 29m   v1.20.4
+node2    Ready,SchedulingDisabled   <none>                 11m   v1.20.4
+
+
+# 测试应用是否无视了隔离节点
+root@master ~]# kubectl apply -f nginx.yaml
+deployment.apps/nginx-deployment configured
+service/nginx-service unchanged
+[root@master ~]# kubectl get pods -o wide -n zlm-k8s
+NAME                                READY   STATUS    RESTARTS   AGE   IP               NODE    NOMINATED NODE   READINESS GATES
+nginx-deployment-7fd8d96599-685fm   1/1     Running   0          3s    10.122.166.134   node1   <none>           <none>
+nginx-deployment-7fd8d96599-mc9kf   1/1     Running   0          18m   10.122.166.132   node1   <none>           <none>
+nginx-deployment-7fd8d96599-xnh9l   1/1     Running   0          18m   10.122.166.131   node1   <none>           <none>
+nginx-deployment-7fd8d96599-zz8tb   1/1     Running   0          3s    10.122.166.133   node1   <none>           <none>
+```
+
+### 从隔离node节点驱离pod
+
+```sh
+[root@master ~]# kubectl get node
+NAME     STATUS                     ROLES                  AGE   VERSION
+master   Ready                      control-plane,master   49m   v1.20.4
+node1    Ready                      <none>                 33m   v1.20.4
+node2    Ready,SchedulingDisabled   <none>                 15m   v1.20.4
+[root@master ~]# kubectl get pods -o wide -n zlm-k8s
+NAME                                READY   STATUS    RESTARTS   AGE   IP               NODE    NOMINATED NODE   READINESS GATES
+nginx-deployment-7fd8d96599-bbmgp   1/1     Running   0          63s   10.122.104.4     node2   <none>           <none>
+nginx-deployment-7fd8d96599-mc9kf   1/1     Running   0          24m   10.122.166.132   node1   <none>           <none>
+nginx-deployment-7fd8d96599-xnh9l   1/1     Running   0          24m   10.122.166.131   node1   <none>           <none>
+nginx-deployment-7fd8d96599-zfgqn   1/1     Running   0          63s   10.122.104.3     node2   <none>           <none>
+
+[root@master ~]#  kubectl drain node2 --ignore-daemonsets
+node/node2 already cordoned
+WARNING: ignoring DaemonSet-managed Pods: kube-system/calico-node-gsdjr, kube-system/kube-proxy-jqwc7
+evicting pod zlm-k8s/nginx-deployment-7fd8d96599-zfgqn
+evicting pod zlm-k8s/nginx-deployment-7fd8d96599-bbmgp
+pod/nginx-deployment-7fd8d96599-bbmgp evicted
+pod/nginx-deployment-7fd8d96599-zfgqn evicted
+node/node2 evicted
+[root@master ~]# kubectl get pods -o wide -n zlm-k8s
+NAME                                READY   STATUS    RESTARTS   AGE   IP               NODE    NOMINATED NODE   READINESS GATES
+nginx-deployment-7fd8d96599-7jmlt   1/1     Running   0          11s   10.122.166.136   node1   <none>           <none>
+nginx-deployment-7fd8d96599-m7tsx   1/1     Running   0          11s   10.122.166.135   node1   <none>           <none>
+nginx-deployment-7fd8d96599-mc9kf   1/1     Running   0          24m   10.122.166.132   node1   <none>           <none>
+nginx-deployment-7fd8d96599-xnh9l   1/1     Running   0          24m   10.122.166.131   node1   <none>           <none>
+
+```
+
+### 恢复
+
+```sh
+[root@master ~]# kubectl uncordon node2
+node/node2 uncordoned
+[root@master ~]# kubectl get node
+NAME     STATUS   ROLES                  AGE   VERSION
+master   Ready    control-plane,master   51m   v1.20.4
+node1    Ready    <none>                 34m   v1.20.4
+node2    Ready    <none>                 16m   v1.20.4
+```
+
+
+
+
+
+## Pod指定Node
+
+### nodeName方式实现
+
+```yaml
+[root@master ~]# cat nginx-deployment.yaml
+# 这里是粘贴模板，下面是解释模板
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-app-node1
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      nodeName: node1 
+      containers:
+      - name: nginx
+        image: nginx:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+
+
+# 为解释模板
+apiVersion: apps/v1
+# 类型，如：Pod/ReplicationController/Deployment/Service/Ingress
+kind: Deployment
+metadata:
+  # Kind 的名称
+  name: nginx-app-node1
+spec:
+  selector:
+    matchLabels:
+      # 容器标签的名字，发布 Service 时，selector 需要和这里对应
+      app: nginx
+  # 部署的实例数量
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      nodeName: node1 
+      # 配置容器，数组类型，说明可以配置多个容器
+      containers:
+      # 容器名称
+      - name: nginx
+        # 容器镜像
+        image: nginx:latest
+        # 只有镜像不存在时，才会进行镜像拉取
+        imagePullPolicy: IfNotPresent
+        ports:
+        # Pod 端口
+        - containerPort: 80
+        
+        
+        
+ # 执行
+[root@master ~]# kubectl apply -f nginx-deployment.yaml 
+deployment.apps/nginx-app-node1 created
+[root@master ~]# kubectl get pod -o wide
+NAME                               READY   STATUS    RESTARTS   AGE     IP               NODE    NOMINATED NODE   READINESS GATES
+nginx-app-node1-67d4ff55ff-8kjfk   1/1     Running   0          2m55s   10.122.166.138   node1   <none>           <none>
+nginx-app-node1-67d4ff55ff-jd5tb   1/1     Running   0          2m55s   10.122.166.139   node1   <none>           <none>
+nginx-app-node1-67d4ff55ff-n6xqd   1/1     Running   0          2m55s   10.122.166.140   node1   <none>           <none>
+nginx-app-node1-67d4ff55ff-nkr29   1/1     Running   0          2m55s   10.122.166.137   node1   <none>           <none>
+
+```
+
+
+
+### nodeSelector方式实现
+
+```sh
+# 设置node2的label为ts=node2
+[root@master ~]# kubectl get nodes --show-labels
+NAME     STATUS   ROLES                  AGE   VERSION   LABELS
+master   Ready    control-plane,master   60m   v1.20.4   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=master,kubernetes.io/os=linux,node-role.kubernetes.io/control-plane=,node-role.kubernetes.io/master=
+node1    Ready    <none>                 43m   v1.20.4   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=node1,kubernetes.io/os=linux
+node2    Ready    <none>                 26m   v1.20.4   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=node2,kubernetes.io/os=linux
+[root@master ~]# kubectl label nodes node2 ts=node2
+node/node2 labeled
+[root@master ~]# kubectl get nodes --show-labels
+NAME     STATUS   ROLES                  AGE   VERSION   LABELS
+master   Ready    control-plane,master   61m   v1.20.4   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=master,kubernetes.io/os=linux,node-role.kubernetes.io/control-plane=,node-role.kubernetes.io/master=
+node1    Ready    <none>                 44m   v1.20.4   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=node1,kubernetes.io/os=linux
+node2    Ready    <none>                 26m   v1.20.4   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=node2,kubernetes.io/os=linux,ts=node2
+
+
+
+# 编写yaml文件加入nodeSelector信息
+[root@master ~]# cat nginx-deployment.yaml 
+# 这里是粘贴模板，下面是解释模板
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-app-node2
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      nodeSelector: 
+        ts: node2
+      containers:
+      - name: nginx
+        image: nginx:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        
+# 此为解释模板
+apiVersion: apps/v1
+# 类型，如：Pod/ReplicationController/Deployment/Service/Ingress
+kind: Deployment
+metadata:
+  # Kind 的名称
+  name: nginx-app-node2
+spec:
+  selector:
+    matchLabels:
+      # 容器标签的名字，发布 Service 时，selector 需要和这里对应
+      app: nginx
+  # 部署的实例数量
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      nodeSelector: 
+        ts: node2
+      # 配置容器，数组类型，说明可以配置多个容器
+      containers:
+      # 容器名称
+      - name: nginx
+        # 容器镜像
+        image: nginx:latest
+        # 只有镜像不存在时，才会进行镜像拉取
+        imagePullPolicy: IfNotPresent
+        ports:
+        # Pod 端口
+        - containerPort: 80
+
+
+
+
+# 查看默认命名空间指定node2的pod
+[root@master ~]# kubectl get pod -o wide
+NAME                               READY   STATUS    RESTARTS   AGE   IP               NODE    NOMINATED NODE   READINESS GATES
+nginx-app-node1-67d4ff55ff-8kjfk   1/1     Running   0          20m   10.122.166.138   node1   <none>           <none>
+nginx-app-node1-67d4ff55ff-jd5tb   1/1     Running   0          20m   10.122.166.139   node1   <none>           <none>
+nginx-app-node1-67d4ff55ff-n6xqd   1/1     Running   0          20m   10.122.166.140   node1   <none>           <none>
+nginx-app-node1-67d4ff55ff-nkr29   1/1     Running   0          20m   10.122.166.137   node1   <none>           <none>
+nginx-app-node2-86f8b4566b-9xh69   1/1     Running   0          10m   10.122.104.8     node2   <none>           <none>
+nginx-app-node2-86f8b4566b-ch2ct   1/1     Running   0          10m   10.122.104.7     node2   <none>           <none>
+nginx-app-node2-86f8b4566b-d9dp5   1/1     Running   0          10m   10.122.104.6     node2   <none>           <none>
+nginx-app-node2-86f8b4566b-tn5px   1/1     Running   0          10m   10.122.104.5     node2   <none>           <none>
+
+
+# 删除lable信息
+[root@master ~]# kubectl label nodes node2 ts-
+node/node2 labeled
+[root@master ~]# kubectl get nodes --show-labels
+NAME     STATUS   ROLES                  AGE   VERSION   LABELS
+master   Ready    control-plane,master   77m   v1.20.4   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=master,kubernetes.io/os=linux,node-role.kubernetes.io/control-plane=,node-role.kubernetes.io/master=
+node1    Ready    <none>                 60m   v1.20.4   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=node1,kubernetes.io/os=linux
+node2    Ready    <none>                 42m   v1.20.4   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=node2,kubernetes.io/os=linux
+```
+
+
+
+
+
+## 应用滚动和更新
+
+```sh
+[root@master ~]# vim nginx-deployment.yaml 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-app-node1
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+
+[root@master ~]# kubectl apply -f nginx-deployment.yaml --record
+deployment.apps/nginx-app-node1 configured
+[root@master ~]# kubectl get pod
+NAME                               READY   STATUS    RESTARTS   AGE
+nginx-app-node1-75b69bd684-7vzhd   1/1     Running   0          2m5s
+nginx-app-node1-75b69bd684-jsn6s   1/1     Running   0          2m3s
+nginx-app-node1-75b69bd684-nbj82   1/1     Running   0          2m3s
+nginx-app-node1-75b69bd684-qv2b5   1/1     Running   0          2m5s
+```
+
+### 滚动升级
+
+```sh
+# 修改构建文件
+[root@master ~]# cat nginx-deployment.yaml
+# 此为粘贴模板
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-app-node1
+spec:
+  minReadySeconds: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.7.8
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+# 此为解释模板
+apiVersion: apps/v1
+# 类型，如：Pod/ReplicationController/Deployment/Service/Ingress
+kind: Deployment
+metadata:
+  # Kind 的名称
+  name: nginx-app-node1
+spec:
+  minReadySeconds: 5   #滚动升级时，容器准备就绪时间最少为5s
+  strategy:
+    type: RollingUpdate  #升级方式 recreate和RollingUpdate两种
+    rollingUpdate:   
+      maxSurge: 1   ##滚动升级时会先启动1个pod
+      maxUnavailable: 1  ##滚动升级时允许的最大Unavailable的pod个数
+
+  selector:
+    matchLabels:
+      # 容器标签的名字，发布 Service 时，selector 需要和这里对应
+      app: nginx
+  # 部署的实例数量
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      # 配置容器，数组类型，说明可以配置多个容器
+      containers:
+      # 容器名称
+      - name: nginx
+        # 容器镜像
+        image: nginx:1.7.8
+        # 只有镜像不存在时，才会进行镜像拉取
+        imagePullPolicy: IfNotPresent
+        ports:
+        # Pod 端口
+        - containerPort: 80
+PS:
+minReadySeconds: 表示kubernetes在等待设置时间后才进行升级，如果没有设置该值kubernete会假设容器启动起来就提供服务了，如果没有设置该值，在某些极端情况下可能会造成服务不正常运行，默认值是0
+
+type：RollingUpdate表示，设置更新策略为滚动更新，可以设置为recreate和RollingUpdate两个值，recreate表示全部重新创建，默认值就是RollingUpdate 
+
+maxSurge: 表示升级过程中最多可以比原先设置多出的pod数量，例如maxSurge=1,replicas:5 就表示kubennetes会先启动一个新的pod,然后删除掉一个就的pod，整个升级过程中最多会有5+1pod
+
+maxUnavailable:表示升级过程中最多有多少个pod处于无法提供服务的状态，当manSurge不为0时，该值也不能为0，maxUnavailable =1 表示kubernetes整个升级过程中最多会有一个pod处于无法服务的状态
+
+# 执行滚动升级
+kubectl apply -f nginx-deployment.yaml --record
+# 验证
+kubectl get pod -o=jsonpath='{range .items[*]}{"\n"}{.metadata.name}{": "}{range .spec.containers[*]}{@.name}{" - "}{@.image}{end}{end}'
+nginx-app-node1-8f5cc57cf-cspkx: nginx - nginx:1.7.8
+nginx-app-node1-8f5cc57cf-r6trq: nginx - nginx:1.7.8
+nginx-app-node1-8f5cc57cf-rgd6c: nginx - nginx:1.7.8
+nginx-app-node1-8f5cc57cf-sffp4: nginx - nginx:1.7.8
+```
+
+
+
+### 金丝雀升级（灰度发布）
+
+#### 简介
+
+将 image 升级到 新 版本触发更新, 并立即暂停更新.这时会有一个新版本的 pod 启动, 可以暂停更新过程, 让少量用户可以访问到新版本, 并观察其运行是否正常.根据新版本的运行情况, 可以继续完成更新, 或回滚到旧版本，此更新叫做金丝雀升级（灰度发布）
+
+#### 实验
+
+```sh
+# 查看资源部署对象
+[root@master ~]# kubectl rollout status deployment nginx-app-node1
+deployment "nginx-app-node1" successfully rolled out
+
+
+# 进行灰度发布
+# 本人使用的是这个命令
+[root@master ~]# kubectl set image deployment/nginx-app-node1 nginx=nginx:1.19.1 --record
+deployment.apps/nginx-app-node1 image updated
+
+[root@master ~]# kubectl set image deployment nginx-app-node1 nginx=nginx:1.15.4 --record Flag --record has been deprecated, --record will be removed in the future
+
+# 暂停滚动更新操作
+[root@master ~]# kubectl rollout pause deployment nginx-app-node1
+deployment.apps/nginx-app-node1 paused
+
+# 查看1
+[root@master ~]# kubectl get pod -o=jsonpath='{range .items[*]}{"\n"}{.metadata.name}{": "}{range .spec.containers[*]}{@.name}{" - "}{@.image}{end}{end}'
+
+nginx-app-node1-5bbdfb5879-nxmrp: nginx - nginx:1.19.1
+nginx-app-node1-5bbdfb5879-rd4bg: nginx - nginx:1.19.1
+nginx-app-node1-746ccc65d8-5b4zb: nginx - nginx:1.15.4
+nginx-app-node1-746ccc65d8-6bjrc: nginx - nginx:1.15.4
+nginx-app-node1-746ccc65d8-6mvmf: nginx - nginx:1.15.4
+
+# 查看2
+[root@master ~]# kubectl describe deployments.apps nginx-app-node1
+Name:                   nginx-app-node1
+Namespace:              default
+CreationTimestamp:      Tue, 13 Jun 2023 15:40:30 +0800
+Labels:                 <none>
+Annotations:            deployment.kubernetes.io/revision: 5
+                        kubernetes.io/change-cause: kubectl set image deployment/nginx-app-node1 nginx=nginx:1.19.1 --record=true
+Selector:               app=nginx
+# 这里看到已经更新了两个，根上面的版本相呼应
+Replicas:               4 desired | 2 updated | 5 total | 5 available | 0 unavailable
+StrategyType:           RollingUpdate
+MinReadySeconds:        5
+RollingUpdateStrategy:  1 max unavailable, 1 max surge
+Pod Template:
+  Labels:  app=nginx
+  Containers:
+   nginx:
+    Image:        nginx:1.19.1
+    Port:         80/TCP
+    Host Port:    0/TCP
+    Environment:  <none>
+    Mounts:       <none>
+  Volumes:        <none>
+Conditions:
+  Type           Status   Reason
+  ----           ------   ------
+  Available      True     MinimumReplicasAvailable
+  Progressing    Unknown  DeploymentPaused
+# 这边也能验证
+OldReplicaSets:  nginx-app-node1-746ccc65d8 (3/3 replicas created)
+NewReplicaSet:   nginx-app-node1-5bbdfb5879 (2/2 replicas created)
+Events:
+  Type    Reason             Age                From                   Message
+  ----    ------             ----               ----                   -------
+  Normal  ScalingReplicaSet  34m                deployment-controller  Scaled up replica set nginx-app-node1-75b69bd684 to 1
+  Normal  ScalingReplicaSet  34m                deployment-controller  Scaled down replica set nginx-app-node1-67d4ff55ff to 3
+  Normal  ScalingReplicaSet  34m                deployment-controller  Scaled up replica set nginx-app-node1-75b69bd684 to 2
+  Normal  ScalingReplicaSet  34m                deployment-controller  Scaled down replica set nginx-app-node1-67d4ff55ff to 2
+  Normal  ScalingReplicaSet  34m                deployment-controller  Scaled up replica set nginx-app-node1-75b69bd684 to 3
+  Normal  ScalingReplicaSet  34m                deployment-controller  Scaled down replica set nginx-app-node1-67d4ff55ff to 1
+  Normal  ScalingReplicaSet  34m                deployment-controller  Scaled up replica set nginx-app-node1-75b69bd684 to 4
+  Normal  ScalingReplicaSet  34m                deployment-controller  Scaled down replica set nginx-app-node1-67d4ff55ff to 0
+  Normal  ScalingReplicaSet  24m                deployment-controller  Scaled up replica set nginx-app-node1-8f5cc57cf to 1
+  Normal  ScalingReplicaSet  24m (x7 over 24m)  deployment-controller  (combined from similar events): Scaled down replica set nginx-app-node1-75b69bd684 to 0
+  Normal  ScalingReplicaSet  8m58s              deployment-controller  Scaled up replica set nginx-app-node1-746ccc65d8 to 1
+  Normal  ScalingReplicaSet  8m58s              deployment-controller  Scaled down replica set nginx-app-node1-8f5cc57cf to 3
+  Normal  ScalingReplicaSet  8m58s              deployment-controller  Scaled up replica set nginx-app-node1-746ccc65d8 to 2
+  Normal  ScalingReplicaSet  8m28s              deployment-controller  Scaled down replica set nginx-app-node1-8f5cc57cf to 1
+  Normal  ScalingReplicaSet  8m28s              deployment-controller  Scaled up replica set nginx-app-node1-746ccc65d8 to 4
+  Normal  ScalingReplicaSet  8m20s              deployment-controller  Scaled down replica set nginx-app-node1-8f5cc57cf to 0
+  Normal  ScalingReplicaSet  61s                deployment-controller  Scaled up replica set nginx-app-node1-5bbdfb5879 to 1
+  Normal  ScalingReplicaSet  61s                deployment-controller  Scaled down replica set nginx-app-node1-746ccc65d8 to 3
+  Normal  ScalingReplicaSet  61s                deployment-controller  Scaled up replica set nginx-app-node1-5bbdfb5879 to 2
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+# 查看pod
+[root@master ~]# kubectl get pod
+NAME                               READY   STATUS    RESTARTS   AGE
+nginx-app-node1-5bbdfb5879-nxmrp   1/1     Running   0          6m59s
+nginx-app-node1-5bbdfb5879-rd4bg   1/1     Running   0          6m59s
+nginx-app-node1-746ccc65d8-5b4zb   1/1     Running   0          14m
+nginx-app-node1-746ccc65d8-6bjrc   1/1     Running   0          14m
+
+# 继续更新
+[root@master ~]# kubectl rollout  resume deployment nginx-app-node1 
+deployment.apps/nginx-app-node1 resumed
+
+# 验证查看
+[root@master ~]# kubectl get pod -o=jsonpath='{range .items[*]}{"\n"}{.metadata.name}{": "}{range .spec.containers[*]}{@.name}{" - "}{@.image}{end}{end}'
+
+nginx-app-node1-5bbdfb5879-bb5kz: nginx - nginx:1.19.1
+nginx-app-node1-5bbdfb5879-nxmrp: nginx - nginx:1.19.1
+nginx-app-node1-5bbdfb5879-rd4bg: nginx - nginx:1.19.1
+nginx-app-node1-5bbdfb5879-tk2wl: nginx - nginx:1.19.1
+```
+
+
+
+
+
+### 回滚
+
+####  模拟一个不存在的镜像进行更新，进行回滚操作
+
+```sh
+[root@master ~]# kubectl set image deployment nginx-app-node1 nginx=nginx:1.7.0 
+deployment.apps/nginx-app-node1 image updated
+[root@master ~]# kubectl get pod
+# 这里看到状态为异常，因为回滚的版本并不存在
+NAME                               READY   STATUS             RESTARTS   AGE
+nginx-app-node1-5bbdfb5879-bb5kz   1/1     Running            0          3m3s
+nginx-app-node1-5bbdfb5879-nxmrp   1/1     Running            0          10m
+nginx-app-node1-5bbdfb5879-rd4bg   1/1     Running            0          10m
+nginx-app-node1-654b5b98ff-js6pn   0/1     ImagePullBackOff   0          53s
+nginx-app-node1-654b5b98ff-qcznz   0/1     ImagePullBackOff   0          52s
+
+
+
+# 查看历史版本
+[root@master ~]# kubectl rollout history deployment nginx-app-node1
+deployment.apps/nginx-app-node1 
+REVISION  CHANGE-CAUSE
+1         <none>
+2         kubectl apply --filename=nginx-deployment.yaml --record=true
+3         kubectl apply --filename=nginx-deployment.yaml --record=true
+4         kubectl set image deployment nginx-app-node1 nginx=nginx:1.15.4 --record=true
+5         kubectl set image deployment/nginx-app-node1 nginx=nginx:1.19.1 --record=true
+# 6版本为报错版本
+6         kubectl set image deployment/nginx-app-node1 nginx=nginx:1.19.1 --record=true
+
+[root@master ~]# kubectl rollout history deployment nginx-app-node1 --revision 6
+deployment.apps/nginx-app-node1 with revision #6
+Pod Template:
+  Labels:	app=nginx
+	pod-template-hash=654b5b98ff
+  Annotations:	kubernetes.io/change-cause: kubectl set image deployment/nginx-app-node1 nginx=nginx:1.19.1 --record=true
+  Containers:
+   nginx:
+    Image:	nginx:1.7.0
+    Port:	80/TCP
+    Host Port:	0/TCP
+    Environment:	<none>
+    Mounts:	<none>
+  Volumes:	<none>
+```
+
+#### 回滚到上一个版本
+
+```sh
+# 回滚到上一个版本
+
+[root@master ~]# kubectl rollout undo deployment nginx-app-node1
+deployment.apps/nginx-app-node1 rolled back
+[root@master ~]# kubectl get pood
+error: the server doesn't have a resource type "pood"
+[root@master ~]# kubectl get pod
+NAME                               READY   STATUS    RESTARTS   AGE
+nginx-app-node1-5bbdfb5879-bb5kz   1/1     Running   0          8m7s
+nginx-app-node1-5bbdfb5879-j7nkq   1/1     Running   0          6s
+nginx-app-node1-5bbdfb5879-nxmrp   1/1     Running   0          15m
+nginx-app-node1-5bbdfb5879-rd4bg   1/1     Running   0          15m
+# 查看
+[root@master ~]# kubectl exec -it nginx-app-node1-5bbdfb5879-bb5kz -- nginx -V
+# 这里本人的上一个版本依然是1.19.1，也是历史版本5
+nginx version: nginx/1.19.1
+built by gcc 8.3.0 (Debian 8.3.0-6) 
+built with OpenSSL 1.1.1d  10 Sep 2019
+TLS SNI support enabled
+configure arguments: --prefix=/etc/nginx --sbin-path=/usr/sbin/nginx --modules-path=/usr/lib/nginx/modules --conf-path=/etc/nginx/nginx.conf --error-log-path=/var/log/nginx/error.log --http-log-path=/var/log/nginx/access.log --pid-path=/var/run/nginx.pid --lock-path=/var/run/nginx.lock --http-client-body-temp-path=/var/cache/nginx/client_temp --http-proxy-temp-path=/var/cache/nginx/proxy_temp --http-fastcgi-temp-path=/var/cache/nginx/fastcgi_temp --http-uwsgi-temp-path=/var/cache/nginx/uwsgi_temp --http-scgi-temp-path=/var/cache/nginx/scgi_temp --user=nginx --group=nginx --with-compat --with-file-aio --with-threads --with-http_addition_module --with-http_auth_request_module --with-http_dav_module --with-http_flv_module --with-http_gunzip_module --with-http_gzip_static_module --with-http_mp4_module --with-http_random_index_module --with-http_realip_module --with-http_secure_link_module --with-http_slice_module --with-http_ssl_module --with-http_stub_status_module --with-http_sub_module --with-http_v2_module --with-mail --with-mail_ssl_module --with-stream --with-stream_realip_module --with-stream_ssl_module --with-stream_ssl_preread_module --with-cc-opt='-g -O2 -fdebug-prefix-map=/data/builder/debuild/nginx-1.19.1/debian/debuild-base/nginx-1.19.1=. -fstack-protector-strong -Wformat -Werror=format-security -Wp,-D_FORTIFY_SOURCE=2 -fPIC' --with-ld-opt='-Wl,-z,relro -Wl,-z,now -Wl,--as-needed -pie'
+```
+
+#### 回滚到指定版本
+
+```sh
+# 指定版本1回滚
+[root@master ~]#  kubectl rollout undo deployment nginx-app-node1 --to-revision 1
+deployment.apps/nginx-app-node1 rolled back
+[root@master ~]# kubectl get pod
+NAME                               READY   STATUS    RESTARTS   AGE
+nginx-app-node1-5bbdfb5879-bb5kz   1/1     Running   0          15m
+nginx-app-node1-5bbdfb5879-nxmrp   1/1     Running   0          22m
+nginx-app-node1-5bbdfb5879-rd4bg   1/1     Running   0          22m
+nginx-app-node1-67d4ff55ff-fl8xr   1/1     Running   0          5s
+nginx-app-node1-67d4ff55ff-tblsw   1/1     Running   0          5s
+# 查看版本
+[root@master ~]# kubectl get pod -o=jsonpath='{range .items[*]}{"\n"}{.metadata.name}{": "}{range .spec.containers[*]}{@.name}{" - "}{@.image}{end}{end}'
+nginx-app-node1-67d4ff55ff-5lxzp: nginx - nginx:latest
+nginx-app-node1-67d4ff55ff-fl8xr: nginx - nginx:latest
+nginx-app-node1-67d4ff55ff-g7zhh: nginx - nginx:latest
+nginx-app-node1-67d4ff55ff-tblsw: nginx - nginx:latest
+
+[root@master ~]# kubectl rollout history deployment nginx-app-node1
+deployment.apps/nginx-app-node1 
+REVISION  CHANGE-CAUSE
+2         kubectl apply --filename=nginx-deployment.yaml --record=true
+3         kubectl apply --filename=nginx-deployment.yaml --record=true
+4         kubectl set image deployment nginx-app-node1 nginx=nginx:1.15.4 --record=true
+6         kubectl set image deployment/nginx-app-node1 nginx=nginx:1.19.1 --record=true
+7         kubectl set image deployment/nginx-app-node1 nginx=nginx:1.19.1 --record=true
+8         <none>
+
+
+[root@master ~]# kubectl exec -it nginx-app-node1-67d4ff55ff-5lxzp -- nginx -V
+nginx version: nginx/1.21.5
+built by gcc 10.2.1 20210110 (Debian 10.2.1-6) 
+built with OpenSSL 1.1.1k  25 Mar 2021
+TLS SNI support enabled
+configure arguments: --prefix=/etc/nginx --sbin-path=/usr/sbin/nginx --modules-path=/usr/lib/nginx/modules --conf-path=/etc/nginx/nginx.conf --error-log-path=/var/log/nginx/error.log --http-log-path=/var/log/nginx/access.log --pid-path=/var/run/nginx.pid --lock-path=/var/run/nginx.lock --http-client-body-temp-path=/var/cache/nginx/client_temp --http-proxy-temp-path=/var/cache/nginx/proxy_temp --http-fastcgi-temp-path=/var/cache/nginx/fastcgi_temp --http-uwsgi-temp-path=/var/cache/nginx/uwsgi_temp --http-scgi-temp-path=/var/cache/nginx/scgi_temp --user=nginx --group=nginx --with-compat --with-file-aio --with-threads --with-http_addition_module --with-http_auth_request_module --with-http_dav_module --with-http_flv_module --with-http_gunzip_module --with-http_gzip_static_module --with-http_mp4_module --with-http_random_index_module --with-http_realip_module --with-http_secure_link_module --with-http_slice_module --with-http_ssl_module --with-http_stub_status_module --with-http_sub_module --with-http_v2_module --with-mail --with-mail_ssl_module --with-stream --with-stream_realip_module --with-stream_ssl_module --with-stream_ssl_preread_module --with-cc-opt='-g -O2 -ffile-prefix-map=/data/builder/debuild/nginx-1.21.5/debian/debuild-base/nginx-1.21.5=. -fstack-protector-strong -Wformat -Werror=format-security -Wp,-D_FORTIFY_SOURCE=2 -fPIC' --with-ld-opt='-Wl,-z,relro -Wl,-z,now -Wl,--as-needed -pie'
+
+```
+
+
+
+
+
+
+
+
+
+## 扩容和缩容
+
+### 手动扩缩容
+
+修改yaml的replicas数量并重新apply
+
+```sh
+# 修改yaml文件
+[root@master ~]# sed -i 's/replicas: 4/replicas: 2/g' nginx-deployment.yaml 
+# 执行
+[root@master ~]# kubectl apply -f nginx-deployment.yaml 
+# 查看
+[root@master ~]# kubectl get pod
+NAME                               READY   STATUS    RESTARTS   AGE
+nginx-app-node1-b7f7b8bfd-lvfsq    1/1     Running   0          30s
+nginx-app-node1-b7f7b8bfd-znqpx    1/1     Running   0          30s
+
+# 再次修改并执行
+[root@master ~]# sed -i 's/replicas: 2/replicas: 6/g' nginx-deployment.yaml
+[root@master ~]# kubectl apply -f nginx-deployment.yaml 
+deployment.apps/nginx-app-node1 configured
+[root@master ~]# kubectl get pod
+NAME                               READY   STATUS    RESTARTS   AGE
+nginx-app-node1-b7f7b8bfd-cp2ql    1/1     Running   0          8s
+nginx-app-node1-b7f7b8bfd-ftlxz    1/1     Running   0          8s
+nginx-app-node1-b7f7b8bfd-lvfsq    1/1     Running   0          3m51s
+nginx-app-node1-b7f7b8bfd-mb8sw    1/1     Running   0          8s
+nginx-app-node1-b7f7b8bfd-s2lr6    1/1     Running   0          8s
+nginx-app-node1-b7f7b8bfd-znqpx    1/1     Running   0          3m51s
+
+
+
+# 在线编辑更改replicas：2
+[root@master ~]# kubectl edit deployments.apps nginx-app-node1
+# 需要找到replicas来修改，保存退出后会直接执行
+deployment.apps/nginx-app-node1 edited
+[root@master ~]# kubectl get pod
+NAME                               READY   STATUS    RESTARTS   AGE
+nginx-app-node1-b7f7b8bfd-gr6gl    1/1     Running   0          4s
+nginx-app-node1-b7f7b8bfd-lvfsq    1/1     Running   0          6m11s
+
+
+# 通过命令扩容
+[root@master ~]# kubectl scale deployment nginx-app-node1 --replicas 8
+deployment.apps/nginx-app-node1 scaled
+[root@master ~]# kubectl get pod
+NAME                               READY   STATUS    RESTARTS   AGE
+nginx-app-node1-b7f7b8bfd-cnzfh    1/1     Running   0          5s
+nginx-app-node1-b7f7b8bfd-f74pp    1/1     Running   0          5s
+nginx-app-node1-b7f7b8bfd-glc88    1/1     Running   0          5s
+nginx-app-node1-b7f7b8bfd-gr6gl    1/1     Running   0          4m48s
+nginx-app-node1-b7f7b8bfd-hbbw2    1/1     Running   0          5s
+nginx-app-node1-b7f7b8bfd-htlvn    1/1     Running   0          5s
+nginx-app-node1-b7f7b8bfd-lvfsq    1/1     Running   0          10m
+nginx-app-node1-b7f7b8bfd-p6ctw    1/1     Running   0          5s
+
+```
+
+### 自动扩缩容
+
+1. 编写metrics-server
+
+   ```yaml
+   [root@master ~]# cat components.yaml
+   apiVersion: v1
+   kind: ServiceAccount
+   metadata:
+     labels:
+       k8s-app: metrics-server
+     name: metrics-server
+     namespace: kube-system
+   ---
+   apiVersion: rbac.authorization.k8s.io/v1
+   kind: ClusterRole
+   metadata:
+     labels:
+       k8s-app: metrics-server
+       rbac.authorization.k8s.io/aggregate-to-admin: "true"
+       rbac.authorization.k8s.io/aggregate-to-edit: "true"
+       rbac.authorization.k8s.io/aggregate-to-view: "true"
+     name: system:aggregated-metrics-reader
+   rules:
+   - apiGroups:
+     - metrics.k8s.io
+     resources:
+     - pods
+     - nodes
+     verbs:
+     - get
+     - list
+     - watch
+   ---
+   apiVersion: rbac.authorization.k8s.io/v1
+   kind: ClusterRole
+   metadata:
+     labels:
+       k8s-app: metrics-server
+     name: system:metrics-server
+   rules:
+   - apiGroups:
+     - ""
+     resources:
+     - nodes/metrics
+     verbs:
+     - get
+   - apiGroups:
+     - ""
+     resources:
+     - pods
+     - nodes
+     verbs:
+     - get
+     - list
+     - watch
+   ---
+   apiVersion: rbac.authorization.k8s.io/v1
+   kind: RoleBinding
+   metadata:
+     labels:
+       k8s-app: metrics-server
+     name: metrics-server-auth-reader
+     namespace: kube-system
+   roleRef:
+     apiGroup: rbac.authorization.k8s.io
+     kind: Role
+     name: extension-apiserver-authentication-reader
+   subjects:
+   - kind: ServiceAccount
+     name: metrics-server
+     namespace: kube-system
+   ---
+   apiVersion: rbac.authorization.k8s.io/v1
+   kind: ClusterRoleBinding
+   metadata:
+     labels:
+       k8s-app: metrics-server
+     name: metrics-server:system:auth-delegator
+   roleRef:
+     apiGroup: rbac.authorization.k8s.io
+     kind: ClusterRole
+     name: system:auth-delegator
+   subjects:
+   - kind: ServiceAccount
+     name: metrics-server
+     namespace: kube-system
+   ---
+   apiVersion: rbac.authorization.k8s.io/v1
+   kind: ClusterRoleBinding
+   metadata:
+     labels:
+       k8s-app: metrics-server
+     name: system:metrics-server
+   roleRef:
+     apiGroup: rbac.authorization.k8s.io
+     kind: ClusterRole
+     name: system:metrics-server
+   subjects:
+   - kind: ServiceAccount
+     name: metrics-server
+     namespace: kube-system
+   ---
+   apiVersion: v1
+   kind: Service
+   metadata:
+     labels:
+       k8s-app: metrics-server
+     name: metrics-server
+     namespace: kube-system
+   spec:
+     ports:
+     - name: https
+       port: 443
+       protocol: TCP
+       targetPort: https
+     selector:
+       k8s-app: metrics-server
+   ---
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     labels:
+       k8s-app: metrics-server
+     name: metrics-server
+     namespace: kube-system
+   spec:
+     selector:
+       matchLabels:
+         k8s-app: metrics-server
+     strategy:
+       rollingUpdate:
+         maxUnavailable: 0
+     template:
+       metadata:
+         labels:
+           k8s-app: metrics-server
+       spec:
+         containers:
+         - args:
+           - --cert-dir=/tmp
+           - --secure-port=4443
+           - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
+           - --kubelet-use-node-status-port
+           - --metric-resolution=15s
+           - --kubelet-insecure-tls
+           image: registry.cn-hangzhou.aliyuncs.com/chenby/metrics-server:v0.6.1
+           imagePullPolicy: IfNotPresent
+           livenessProbe:
+             failureThreshold: 3
+             httpGet:
+               path: /livez
+               port: https
+               scheme: HTTPS
+             periodSeconds: 10
+           name: metrics-server
+           ports:
+           - containerPort: 4443
+             name: https
+             protocol: TCP
+           readinessProbe:
+             failureThreshold: 3
+             httpGet:
+               path: /readyz
+               port: https
+               scheme: HTTPS
+             initialDelaySeconds: 20
+             periodSeconds: 10
+           resources:
+             requests:
+               cpu: 100m
+               memory: 200Mi
+           securityContext:
+             allowPrivilegeEscalation: false
+             readOnlyRootFilesystem: true
+             runAsNonRoot: true
+             runAsUser: 1000
+           volumeMounts:
+           - mountPath: /tmp
+             name: tmp-dir
+         nodeSelector:
+           kubernetes.io/os: linux
+         priorityClassName: system-cluster-critical
+         serviceAccountName: metrics-server
+         volumes:
+         - emptyDir: {}
+           name: tmp-dir
+   ---
+   apiVersion: apiregistration.k8s.io/v1
+   kind: APIService
+   metadata:
+     labels:
+       k8s-app: metrics-server
+     name: v1beta1.metrics.k8s.io
+   spec:
+     group: metrics.k8s.io
+     groupPriorityMinimum: 100
+     insecureSkipTLSVerify: true
+     service:
+       name: metrics-server
+       namespace: kube-system
+     version: v1beta1
+     versionPriority: 100
+   ```
+
+2. 开始创建
+
+   ```sh
+   [root@master ~]# kubectl apply -f components.yaml
+   [root@master ~]# kubectl get pod -n kube-system |grep metrics
+   metrics-server-db74b9995-z887z             1/1     Running   0          49s
+   [root@master ~]# kubectl top node
+   NAME     CPU(cores)   CPU%   MEMORY(bytes)   MEMORY%   
+   master   241m         12%    1937Mi          52%       
+   node1    58m          5%     668Mi           38%       
+   node2    55m          5%     728Mi           42%  
+   ```
+
+3. 创建hpa的yaml文件
+
+   ```sh
+   [root@master ~]# cat hpa-test.yaml
+   # 如果需要复制请去掉注释再复制
+   apiVersion: apps/v1
+   # 类型，如：Pod/ReplicationController/Deployment/Service/Ingress
+   kind: Deployment
+   metadata:
+     # Kind 的名称
+     name: nginx-app
+   spec:
+     selector:
+       matchLabels:
+         # 容器标签的名字，发布 Service 时，selector 需要和这里对应
+         app: nginx
+     # 部署的实例数量
+     replicas: 2
+     template:
+       metadata:
+         labels:
+           app: nginx
+       spec:
+         # 配置容器，数组类型，说明可以配置多个容器
+         containers:
+         # 容器名称
+         - name: nginx
+           # 容器镜像
+           image: nginx:latest
+           # 只有镜像不存在时，才会进行镜像拉取
+           imagePullPolicy: IfNotPresent
+           ports:
+           # Pod 端口
+           - containerPort: 80
+           resources:
+             limits:
+               cpu: 50m
+             requests:
+               cpu: 20m
+   
+   ---
+   
+   apiVersion: v1
+   # 类型，如：Pod/ReplicationController/Deployment/Service/Ingress
+   kind: Service
+   metadata:
+     # Kind 的名称
+     name: nginx-service
+   spec:
+     selector:
+       app: nginx
+     ports:
+     - port: 80
+       protocol: TCP
+       targetPort: 80
+     type: NodePort
+     
+     
+   # 执行
+   [root@master ~]# kubectl apply -f hpa-test.yaml 
+   deployment.apps/nginx-app created
+   service/nginx-service created
+   # 获取pod和service列表
+   [root@master ~]# kubectl get pod,svc
+   NAME                                   READY   STATUS    RESTARTS   AGE
+   pod/nginx-app-6666455b4-5wqt4          1/1     Running   0          11s
+   pod/nginx-app-6666455b4-dw4lq          1/1     Running   0          11s
+   pod/nginx-app-node1-b7f7b8bfd-cnzfh    1/1     Running   0          9m53s
+   pod/nginx-app-node1-b7f7b8bfd-f74pp    1/1     Running   0          9m53s
+   pod/nginx-app-node1-b7f7b8bfd-glc88    1/1     Running   0          9m53s
+   pod/nginx-app-node1-b7f7b8bfd-gr6gl    1/1     Running   0          14m
+   pod/nginx-app-node1-b7f7b8bfd-hbbw2    1/1     Running   0          9m53s
+   pod/nginx-app-node1-b7f7b8bfd-htlvn    1/1     Running   0          9m53s
+   pod/nginx-app-node1-b7f7b8bfd-lvfsq    1/1     Running   0          20m
+   pod/nginx-app-node1-b7f7b8bfd-p6ctw    1/1     Running   0          9m53s
+   
+   
+   NAME                    TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
+   service/kubernetes      ClusterIP   10.10.0.1       <none>        443/TCP        179m
+   service/nginx-service   NodePort    10.10.253.105   <none>        80:31166/TCP   11s
+   
+   ```
+
+4. 创建HPA
+
+   该 HPA维护之前创建的 Deployment nginx-app ，控制Pod存在 1 到 10 个副本。HPA 控制器将通过增加和减少副本的数量 （通过更新 Deployment）以保持所有 Pod 的平均 CPU 利用率为 20%
+
+   ```sh
+   [root@master ~]# kubectl autoscale deployment nginx-app --cpu-percent 20 --min 1 --max 10
+   horizontalpodautoscaler.autoscaling/nginx-app autoscaled
+   
+   
+   [root@master ~]# kubectl get hpa nginx-app 
+   NAME        REFERENCE              TARGETS   MINPODS   MAXPODS   REPLICAS   AGE
+   nginx-app   Deployment/nginx-app   0%/20%    1         10        4          19m
+   
+   # 查看serviceip和端口
+   [root@master ~]# kubectl get services
+   NAME            TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
+   kubernetes      ClusterIP   10.10.0.1       <none>        443/TCP        3h27m
+   nginx-service   NodePort    10.10.253.105   <none>        80:31166/TCP   28m
+   # 循环访问
+   [root@master ~]# kubectl run -i --tty load-generator --rm --image=busybox:1.28 --restart=Never -- /bin/sh -c "while sleep 0.01; do wget -qO- http://10.10.253.105:80; done"
+   
+   # 同时进行pod的扩缩容状态查看
+   # 查看deployment负载状态
+   [root@master ~]# kubectl get hpa nginx-app -w
+   NAME        REFERENCE              TARGETS   MINPODS   MAXPODS   REPLICAS   AGE
+   nginx-app   Deployment/nginx-app   0%/10%    1         10        2          40m
+   nginx-app   Deployment/nginx-app   27%/10%   1         10        2          40m
+   nginx-app   Deployment/nginx-app   40%/10%   1         10        4          40m
+   nginx-app   Deployment/nginx-app   22%/10%   1         10        8          41m
+   nginx-app   Deployment/nginx-app   11%/10%   1         10        8          41m
+   nginx-app   Deployment/nginx-app   10%/10%   1         10        8          41m
+   nginx-app   Deployment/nginx-app   1%/10%    1         10        8          41m
+   nginx-app   Deployment/nginx-app   0%/10%    1         10        8          42m
+   # 查看pod是否扩缩容
+   # 当负载不再高的时候会进行pod的删除来进行资源节省
+   [root@master ~]# kubectl get pod -w
+   nginx-app-6666455b4-5wqt4          1/1     Running   0          30m
+   nginx-app-6666455b4-dw4lq          1/1     Running   0          30m
+   load-generator                     0/1     Pending   0          0s
+   load-generator                     0/1     Pending   0          0s
+   load-generator                     0/1     ContainerCreating   0          0s
+   load-generator                     0/1     ContainerCreating   0          1s
+   load-generator                     1/1     Running             0          2s
+   
+   
    ```
 
    
