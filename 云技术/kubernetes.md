@@ -54,6 +54,9 @@ kubectl get rc,service
 # 查看pod的所有信息（不显示属于node）
 kubectl get pod -A
 
+# 查看pod的所有详细信息
+kubectl get pod -A wide
+
 # 显示node的详细信息
 kubectl describe nodes [node-name]
 
