@@ -216,14 +216,14 @@ PaaS功能旨在支持云平台的角色。然而，包括基础设施即服务�
 >     2. scheduler  调度器（使用调度算法，把某个请求调度到下面某一个node节点上面）
 >     3. controller 控制器（负责维护集群的状态，比如故障检测、自动扩展、滚动更新等，维护k8s资源对象，增删改查）
 >     4. etcd       存储器（存储资源对象）
->    
+>       
 >    Node节点
 >     1. docker    容器引擎（容器基础环境），负责容器的创建和管理工作
 >     2. kubelet   node节点操作指令执行器（会监控Api Server上的资源变动，若变动与自己有关系，kublet就去执行任务；定期向master会报节点资源使用情况）
 >     3. kube-proxy 代理服务，负载均衡（实现service的抽象，为一组pod抽象的服务提供统一接口并提供负载均衡）监控pod；pod如果发生了变化，及时修改映射关系；修改映射关系的同时，修改路由规则，以便在负载均衡时可以选择到新的pod。
 >     4. fluentd    日志收集服务
 >     5. pod        k8s最小管理工具（基本单元、最小单元）内部为容器
->    
+>       
 >    特点：
 >    （1）一个master对应多个node
 >    （2）master节点不存储容器，只负责调度、网关、控制器、资源对象的存储等
@@ -1171,6 +1171,232 @@ free -h
    
 
 
+
+
+
+## K8s集群综合部署
+
+### 实验环境
+
+| IP           | 主机   | 节点规划   |
+| ------------ | ------ | ---------- |
+| 192.168.6.4  | master | k8s-master |
+| 192.168.6.11 | worker | k8s-node1  |
+| 192.168.6.12 | worker | k8s-node2  |
+
+### 部署集群
+
+1. 下载解压压缩包（所有节点）
+
+   ```sh
+   # 这里的实验为本地压缩包为1.20版本k8s
+   yum install -y unzip
+   unzip k8s.zip
+   mv k8s/* ./
+   ```
+
+2. 关闭防火墙和selinux并清除iptables规则,并配置时间同步等（所有节点）
+
+   ```sh
+   cat 1.sh
+   #!/bin/bash
+   rm -f /etc/localtime && ln -s /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+   yum list
+   yum install -y vim net-tools
+   yum -y install bash-completion
+   source /etc/profile
+   yum install -y tree
+   yum remove -y NetworkManager firewalld
+   yum install -y iptables-services
+   iptables -F
+   iptables -X
+   iptables -Z
+   service iptables save
+   sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
+   sleep 3
+   shutdown now
+   
+   # 关机后如果是实验记得保存快照
+   ```
+
+3. 关闭swap分区（所有节点）
+
+   ```sh
+   swapoff -a && sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+   ```
+
+4. 配置路由转发（所有节点）
+
+   ```sh
+   modprobe br_netfilter
+   echo "modprobe br_netfilter" >> /etc/profile
+   cat > /etc/sysctl.d/k8s.conf <<EOF
+   net.bridge.bridge-nf-call-ip6tables = 1
+   net.bridge.bridge-nf-call-iptables = 1
+   net.ipv4.ip_forward = 1
+   EOF
+   sysctl -p /etc/sysctl.d/k8s.conf
+   ```
+
+5. 安装docker（所有节点）
+
+   ```sh
+   tar -zxvf k8s-docker.tar.gz -C /opt/
+   tee /etc/yum.repos.d/k8s-docker.repo << 'EOF'
+   [k8s-docker]
+   name=k8s-docker
+   baseurl=file:///opt/k8s-docker
+   enabled=1
+   gpgcheck=0
+   EOF
+   yum install -y yum-utils device-mapper-persistent-data lvm2    //安装依赖包
+   yum install -y docker-ce docker-ce-cli containerd.io        //安装docker-ce
+   systemctl start docker && systemctl enable docker
+   ```
+
+6. 安装集群（所有节点）
+
+   ```sh
+   yum install -y kubelet-1.20.4 kubeadm-1.20.4 kubectl-1.20.4
+   systemctl enable kubelet && systemctl start kubelet
+   ```
+
+7. 添加阿里云镜像加速地址并修改docker文件驱动（所有节点）
+
+   ```sh
+   tee /etc/docker/daemon.json << 'EOF'
+   {
+     "registry-mirrors": ["https://rncxm540.mirror.aliyuncs.com"],
+     "exec-opts": ["native.cgroupdriver=systemd"]
+   } 
+   EOF
+   systemctl daemon-reload  && systemctl restart docker
+   ```
+
+8. 离线导入docker镜像（所有节点）
+
+   ```sh
+   docker load -i k8s-images-v1.20.4.tar.gz  
+   ```
+
+9. 初始化k8s集群（master节点）
+
+   ```sh
+   kubeadm init --kubernetes-version=1.20.4 --apiserver-advertise-address=192.168.6.4 --image-repository registry.aliyuncs.com/google_containers  --service-cidr=10.10.0.0/16 --pod-network-cidr=10.122.0.0/16
+   ```
+
+10. 配置集群（master节点）
+
+    ```sh
+    mkdir -p $HOME/.kube
+    cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+    chown $(id -u):$(id -g) $HOME/.kube/config
+    # 查看集群状态（Notready）
+    kubectl get nodes
+    ```
+
+### 安装网络组件（master节点）
+
+1. 使用yaml文件安装calico网络插件
+
+   ```sh
+   kubectl apply -f /root/calico.
+   
+   # 等待一段时间后插件pod状态为running即可
+   kubectl get pod --all-namespaces
+   
+   # 查看集群状态（ready）
+   kubectl get node
+   ```
+
+### 安装kubernetes-dashboard（图形化管理界面）
+
+1. 修改yaml文件（master节点）
+
+   ```sh
+   # vi recommended.yaml               //在第42行下方添加2行
+         nodePort: 30000
+     type: NodePort
+   ```
+
+2. yaml文件追加内容（master节点）
+
+   ```sh
+   # cat >> recommended.yaml << EOF
+   ---
+   # ------------------- dashboard-admin ------------------- #
+   apiVersion: v1
+   kind: ServiceAccount
+   metadata:
+     name: dashboard-admin
+     namespace: kubernetes-dashboard
+   ---
+   apiVersion: rbac.authorization.k8s.io/v1
+   kind: ClusterRoleBinding
+   metadata:
+     name: dashboard-admin
+   subjects:
+   - kind: ServiceAccount
+     name: dashboard-admin
+     namespace: kubernetes-dashboard
+   roleRef:
+     apiGroup: rbac.authorization.k8s.io
+     kind: ClusterRole
+     name: cluster-admin
+   EOF
+   ```
+
+3. 安装dashboard（master节点）
+
+   ```sh
+   kubectl apply -f recommended.yaml
+   kubectl get pods --all-namespaces
+   ```
+
+4. 查看token登录令牌（master节点）
+
+   ```sh
+   kubectl describe secrets -n kubernetes-dashboard dashboard-admin
+   ```
+
+5. 访问web界面（master节点）
+
+   ```sh
+   #  要求https
+   https://masterip:30000
+   
+   # 输入token值进入
+   ```
+
+### Node界面加入集群
+
+1. master节点查看加入集群命令（master节点）
+
+   ```sh
+   kubeadm token create --print-join-command
+   ```
+
+2. node节点加入集群（node1、node2）
+
+   ```sh
+   kubeadm join 192.168.6.4:6443 --token rb9i1a.kdi2as1chr50b4ku --discovery-token-ca-cert-hash sha256:f3d30f98ea3ff47e561c2a2d471447cbe9e9839fbc400807b79fec9e44ea314b 
+   ```
+
+3. 查看集群状态（master节点）
+
+   ```sh
+   kubectl get nodes
+   ```
+
+   
+
+
+
+
+
+
+
+# 十二、K8s运维实验项目
 
 ## Node的隔离与恢复
 
