@@ -106,7 +106,7 @@ PaaS功能旨在支持云平台的角色。然而，包括基础设施即服务�
 
 早期的软件，所有功能都写在一起，这称为**单体架构**（monolithic software）。
 
-![img](https://cdn.beekka.com/blogimg/asset/220204/bg2022042802.webp)
+![img](https://strife.oratun.cn//%E5%9B%BE%E5%BA%8A/k8s/jenkinsbg2022042802.webp)
 
 整个软件就是单一的整体，彷佛一体化的机器。
 
@@ -120,7 +120,7 @@ PaaS功能旨在支持云平台的角色。然而，包括基础设施即服务�
 
 以上三个原因的详细分析，可以参考我以前的文章[《软件工程的最大难题》](https://www.ruanyifeng.com/blog/2021/05/scaling-problem.html)。
 
-![img](https://cdn.beekka.com/blogimg/asset/220204/bg2022042803.webp)
+![img](https://strife.oratun.cn//图床/k8s/jenkinsbg2022042803.webp)
 
 总之，单体架构的大型软件，不仅开发速度慢，而且会形成难以维护和升级的复杂代码，成为程序员的沉重负担。
 
@@ -130,13 +130,13 @@ PaaS功能旨在支持云平台的角色。然而，包括基础设施即服务�
 
 大概在20多年前，随着互联网的出现，功能单元可以用远程"服务"的形式提供，就诞生出了"面向服务架构"（service-oriented architecture，简称 SOA）。
 
-![img](https://cdn.beekka.com/blogimg/asset/220204/bg2022042804.webp)
+![img](https://strife.oratun.cn//图床/k8s/jenkinsbg2022042804.webp)
 
 所谓服务（service），就是在后台不间断运行、提供某种功能的一个程序。最常见的服务就是 Web 服务，通过80端口向外界提供网页访问。
 
 "面向服务架构"就是把一个大型的单体程序，拆分成一个个独立服务，也就是较小的程序。每个服务都是一个独立的功能单元，承担不同的功能，服务之间通过通信协议连在一起。
 
-![img](https://cdn.beekka.com/blogimg/asset/220204/bg2022042805.webp)
+![img](https://strife.oratun.cn//图床/k8s/jenkinsbg2022042805.webp)
 
 这种架构有很多优点。
 
@@ -160,13 +160,13 @@ PaaS功能旨在支持云平台的角色。然而，包括基础设施即服务�
 
 2014年，[Docker](https://www.ruanyifeng.com/blog/2018/02/docker-tutorial.html) 出现了，彻底改变了软件开发的面貌。它让程序运行在容器中，每个容器可以分别设定运行环境，并且只占用很少的系统资源。
 
-![img](https://cdn.beekka.com/blogimg/asset/220204/bg2022042806.webp)
+![img](https://strife.oratun.cn//图床/k8s/jenkinsbg2022042806.webp)
 
 显而易见，可以用容器来实现"面向服务架构"，每个服务不再占用一台服务器，而是占用一个容器。
 
 这样就不需要多台服务器了，最简单的情况下，本机运行多个容器，只用一台服务器就实现了面向服务架构，这在以前是做不到的。这种实现方式就叫做微服务。
 
-![img](https://cdn.beekka.com/blogimg/asset/220204/bg2022042807.webp)
+![img](https://strife.oratun.cn//图床/k8s/jenkinsbg2022042807.webp)
 
 简单说，**微服务就是采用容器技术的面向服务架构**。它依然使用"服务"作为功能单元，但是变成了轻量级实现，不需要新增服务器，只需要新建容器（一个进程），所以才叫做"微服务"。
 
@@ -216,14 +216,14 @@ PaaS功能旨在支持云平台的角色。然而，包括基础设施即服务�
 >     2. scheduler  调度器（使用调度算法，把某个请求调度到下面某一个node节点上面）
 >     3. controller 控制器（负责维护集群的状态，比如故障检测、自动扩展、滚动更新等，维护k8s资源对象，增删改查）
 >     4. etcd       存储器（存储资源对象）
->       
+>             
 >    Node节点
 >     1. docker    容器引擎（容器基础环境），负责容器的创建和管理工作
 >     2. kubelet   node节点操作指令执行器（会监控Api Server上的资源变动，若变动与自己有关系，kublet就去执行任务；定期向master会报节点资源使用情况）
 >     3. kube-proxy 代理服务，负载均衡（实现service的抽象，为一组pod抽象的服务提供统一接口并提供负载均衡）监控pod；pod如果发生了变化，及时修改映射关系；修改映射关系的同时，修改路由规则，以便在负载均衡时可以选择到新的pod。
 >     4. fluentd    日志收集服务
 >     5. pod        k8s最小管理工具（基本单元、最小单元）内部为容器
->       
+>             
 >    特点：
 >    （1）一个master对应多个node
 >    （2）master节点不存储容器，只负责调度、网关、控制器、资源对象的存储等
