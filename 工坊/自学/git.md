@@ -12,6 +12,9 @@
 
    ```
    ssh-add ~/.ssh/id_rsa
+   
+   # 可能出现报错Could not open a connection to your authentication agent.
+   ssh-agent bash
    ```
 
 3. 查看生成的公钥
