@@ -111,7 +111,7 @@
 
    ```
    # cd /usr/local/src
-   
+   https://museum.php.net/php7/php-7.1.4.tar.gz
    # wget http://nginx.org/download/nginx-1.10.3.tar.gz
    # tar -zxvf php-7.1.4.tar.gz
    ```
