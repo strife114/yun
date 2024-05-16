@@ -83,9 +83,9 @@
    
    # 直接回车
    mysql -uropt =p
-   
+   5.7及其之后
    alter user 'root'@'localhost' identified by '123456';
-   或
+   5.6及其之前
    set password for 'root'@'localhost'=password('1qaz!QAZ');   修改密码
    
    flush privileges;
@@ -93,7 +93,7 @@
    
    # 直接在外面输入命令修改密码
    mysqladmin -u "$MARIADB_USER" password "$MARIADB_PASS"
-
+   
    # 出现密码权限不足的情况可修改密码策略
    set global validate_password_policy=LOW;
    set global validate_password.length=6;
