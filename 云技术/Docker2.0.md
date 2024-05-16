@@ -152,6 +152,9 @@ docker info
 # docker相关配置信息
 docker info  
 
+# 查看镜像
+docker images
+
 # 构建镜像
 docker build 镜像名/镜像id
 
