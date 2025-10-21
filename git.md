@@ -161,18 +161,7 @@
    // 查看本地分支
    git branch
    
-   # 列出所有远程分⽀
-   $ git branch -r
-   # 列出所有本地分⽀和远程分⽀
-   $ git branch -a
-   # 新建⼀个分⽀，但依然停留在当前分⽀
-   $ git branch [branch-name]
-   # 新建⼀个分⽀，并切换到该分⽀
-   $ git checkout -b [branch]
-   # 新建⼀个分⽀，指向指定commit
-   $ git branch [branch] [commit]
-   # 新建⼀个分⽀，与指定的远程分⽀建⽴追踪关系
-   $ git branch --track [branch] [remote-branch]
+   
    ```
    
    
@@ -317,3 +306,31 @@
 3. **创建几个文本文件，模拟修改**，然后练习 `git add`和 `git commit`。
 
 4. **在GitHub或Gitee上创建一个空的远程仓库**，然后使用 `git remote add origin <你的仓库URL>`关联本地仓库，最后用 `git push -u origin main`推送上去。
+
+
+
+
+
+
+
+
+
+# 代码
+
+```
+// 清理本地远程跟踪分支缓存
+git fetch origin --prune
+# 列出所有远程分⽀
+git branch -r
+# 列出所有本地分⽀和远程分⽀
+git branch -a
+# 新建⼀个分⽀，但依然停留在当前分⽀
+git branch [branch-name]
+# 新建⼀个分⽀，并切换到该分⽀
+git checkout -b [branch]
+# 新建⼀个分⽀，指向指定commit
+git branch [branch] [commit]
+# 新建⼀个分⽀，与指定的远程分⽀建⽴追踪关系
+git branch --track [branch] [remote-branch]
+```
+
