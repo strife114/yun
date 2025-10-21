@@ -198,6 +198,18 @@ git remote set-head github -a
    git checkout master
    # 拉取远程 master 分支的最新代码
    git pull origin master
+   
+   # 当两个分支来自完全不同的代码历史没有共同的祖先提交，git默认拒绝不相关的分支合并
+   
+   # 方法1：在mmm分支上强制拉取远程内容
+   git checkout mmm
+   git pull github mmm --allow-unrelated-histories
+   
+   # 方法2：或者在main分支上直接合并
+   git checkout main
+   git merge mmm --allow-unrelated-histories
+   
+   
    ```
 
 2. 在本地先行合并分支
@@ -232,10 +244,12 @@ git remote set-head github -a
    ```
    # 删除本地 master 分支
    git branch -d master
+   # 删除本地 master远程分支
+   git branch -d -r github/master
    # 删除远程 master 分支
    git push origin --delete master
    ```
-
+   
    
 
 
@@ -334,7 +348,7 @@ git remote set-head github -a
 // 清理本地远程跟踪分支缓存
 git fetch origin --prune
 
-# 
+
 # 列出所有远程分⽀
 git branch -r
 # 列出所有本地分⽀和远程分⽀
