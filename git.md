@@ -166,6 +166,19 @@
    
    
 
+# 重命名分支后的新设置
+
+```
+# 重命名本地分支
+git branch -m master main_hub
+# 获取远程最新信息
+git fetch github
+# 重新设置远程分支
+git branch -u github/main main_hub
+# 设置本质记录的远程仓库head引用
+git remote set-head github -a
+```
+
 
 
 # 将master副分支合并到main主分支
@@ -320,6 +333,7 @@
 ```
 // 清理本地远程跟踪分支缓存
 git fetch origin --prune
+
 # 列出所有远程分⽀
 git branch -r
 # 列出所有本地分⽀和远程分⽀
@@ -332,5 +346,8 @@ git checkout -b [branch]
 git branch [branch] [commit]
 # 新建⼀个分⽀，与指定的远程分⽀建⽴追踪关系
 git branch --track [branch] [remote-branch]
+
+# 设置远程分支
+git branch -u origin/main main
 ```
 
